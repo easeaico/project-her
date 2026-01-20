@@ -46,16 +46,16 @@ func main() {
 	defer store.Close()
 
 	// 初始化嵌入服务
-	embedder, err := memory.NewEmbedder(ctx, cfg.APIKey)
+	embedder, err := memory.NewEmbedder(ctx, cfg.GoogleAPIKey, cfg.EmbeddingModel)
 	if err != nil {
 		log.Fatalf("failed to create embedder service: %v", err)
 	}
 
 	// 创建记忆服务
-	memoryService := memory.NewService(embedder, store)
+	memoryService := memory.NewService(embedder, store.Store, cfg.TopK, cfg.SimilarityThreshold)
 
 	// 初始化Agent
-	llmAgent, err := internal.NewHunterAgent(ctx, embedder, store, &cfg)
+	llmAgent, err := internal.NewGirlfriendAgent(ctx, embedder, store.Store, &cfg, memoryService)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

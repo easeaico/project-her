@@ -2,120 +2,187 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"log"
-	"text/template"
+	"log/slog"
+	"strings"
 
-	"github.com/easeaico/adk-memory-agent/internal/config"
-	"github.com/easeaico/adk-memory-agent/internal/memory"
-	"github.com/easeaico/adk-memory-agent/internal/tools"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
-	"google.golang.org/adk/model/gemini"
+	"google.golang.org/adk/model"
 	"google.golang.org/genai"
+
+	"github.com/easeaico/adk-memory-agent/internal/config"
+	"github.com/easeaico/adk-memory-agent/internal/emotion"
+	"github.com/easeaico/adk-memory-agent/internal/memory"
+	"github.com/easeaico/adk-memory-agent/internal/models"
+	"github.com/easeaico/adk-memory-agent/internal/prompt"
+	"github.com/easeaico/adk-memory-agent/internal/repository"
+	"github.com/easeaico/adk-memory-agent/internal/types"
 )
 
-// NewHunterAgent creates and initializes a new coding agent with all required components.
-// It loads project rules, creates tools, initializes the LLM model, and configures
-// the agent with a system prompt. Returns the agent and an error.
-func NewHunterAgent(ctx context.Context, embedder memory.Embedder, store memory.Store, cfg *config.Config) (agent.Agent, error) {
-	// Load project rules for system prompt
-	rules, err := store.GetProjectRules(ctx)
-	if err != nil {
-		log.Printf("Warning: failed to load project rules: %v", err)
+// NewGirlfriendAgent creates the AI companion agent with RAG and emotion engine.
+func NewGirlfriendAgent(
+	ctx context.Context,
+	embedder memory.Embedder,
+	store *repository.Store,
+	cfg *config.Config,
+	memoryService *memory.Service,
+) (agent.Agent, error) {
+	if store == nil || cfg == nil {
+		return nil, fmt.Errorf("store and config are required")
 	}
 
-	// Build system instruction
-	systemPrompt := buildSystemPrompt(rules)
-
-	// Create tools
-	agentTools, err := tools.BuildTools(tools.ToolsConfig{
-		Store:    store,
-		Embedder: embedder,
-		WorkDir:  cfg.WorkDir,
+	llmModel, err := models.NewGrokModel(ctx, cfg.LLMModel, &genai.ClientConfig{
+		APIKey: cfg.XAIAPIKey,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to build tools: %w", err)
+		return nil, fmt.Errorf("failed to create grok model: %w", err)
 	}
 
-	// Create LLM model using ADK's gemini wrapper
-	llmModel, err := gemini.NewModel(ctx, "gemini-3-pro-preview", &genai.ClientConfig{
-		APIKey:  cfg.APIKey,
-		Backend: genai.BackendGeminiAPI,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create LLM model: %w", err)
+	builder := prompt.NewBuilder(cfg.HistoryLimit)
+	retriever := memory.NewRetriever(embedder, store.ChatHistory, cfg.TopK, cfg.SimilarityThreshold)
+	analyzer := emotion.NewAnalyzer(llmModel)
+	stateMachine := emotion.NewStateMachine()
+	logger := slog.Default()
+
+	before := func(cbCtx agent.CallbackContext, req *model.LLMRequest) (*model.LLMResponse, error) {
+		userText := extractUserText(cbCtx.UserContent())
+		sessionID := cbCtx.SessionID()
+		if sessionID == "" {
+			sessionID = cbCtx.InvocationID()
+		}
+
+		character, err := loadCharacter(cbCtx, store, cfg.CharacterID)
+		if err != nil {
+			return nil, err
+		}
+
+		history, err := store.ChatHistory.GetRecentMessages(cbCtx, sessionID, cfg.HistoryLimit)
+		if err != nil {
+			logger.Warn("failed to load history", "error", err.Error())
+		}
+
+		memories, err := retriever.Retrieve(cbCtx, sessionID, userText)
+		if err != nil {
+			logger.Warn("failed to retrieve memories", "error", err.Error())
+		}
+
+		promptContents, err := builder.Build(prompt.BuildContext{
+			Character:   character,
+			Affection:   character.Affection,
+			Mood:        character.CurrentMood,
+			Memories:    memories,
+			History:     history,
+			UserMessage: userText,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Contents = promptContents
+
+		if memoryService != nil && userText != "" {
+			memoryService.SaveMessageAsync(cbCtx, types.ChatMessage{
+				SessionID:   sessionID,
+				CharacterID: character.ID,
+				Role:        "user",
+				Content:     userText,
+			}, true)
+		}
+		return nil, nil
 	}
 
-	// Create LLM agent
+	after := func(cbCtx agent.CallbackContext, resp *model.LLMResponse, respErr error) (*model.LLMResponse, error) {
+		if respErr != nil || resp == nil {
+			return nil, respErr
+		}
+
+		sessionID := cbCtx.SessionID()
+		if sessionID == "" {
+			sessionID = cbCtx.InvocationID()
+		}
+
+		character, err := loadCharacter(cbCtx, store, cfg.CharacterID)
+		if err != nil {
+			return nil, err
+		}
+
+		replyText := extractResponseText(resp)
+		conversation := fmt.Sprintf("user: %s\nassistant: %s", extractUserText(cbCtx.UserContent()), replyText)
+		label, err := analyzer.Analyze(cbCtx, conversation)
+		if err != nil {
+			logger.Warn("failed to analyze emotion", "error", err.Error())
+		}
+
+		newState := stateMachine.Update(emotion.EmotionState{
+			Affection:   character.Affection,
+			CurrentMood: character.CurrentMood,
+		}, label)
+
+		if err := store.Characters.UpdateEmotion(cbCtx, character.ID, newState.Affection, newState.CurrentMood); err != nil {
+			logger.Warn("failed to update emotion state", "error", err.Error())
+		}
+
+		if memoryService != nil && replyText != "" {
+			memoryService.SaveMessageAsync(cbCtx, types.ChatMessage{
+				SessionID:   sessionID,
+				CharacterID: character.ID,
+				Role:        "model",
+				Content:     replyText,
+			}, false)
+		}
+
+		return nil, nil
+	}
+
 	llmAgent, err := llmagent.New(llmagent.Config{
-		Name:        "legacy_code_hunter",
-		Description: "帮助开发者理解、调试和修复代码问题的智能助手",
+		Name:        "project_her_girlfriend",
+		Description: "高情商、有记忆的 AI 伴侣",
 		Model:       llmModel,
-		Instruction: systemPrompt,
-		Tools:       agentTools,
+		IncludeContents: llmagent.IncludeContentsNone,
+		BeforeModelCallbacks: []llmagent.BeforeModelCallback{before},
+		AfterModelCallbacks:  []llmagent.AfterModelCallback{after},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create agent: %w", err)
+		return nil, fmt.Errorf("failed to create girlfriend agent: %w", err)
 	}
 
-	log.Printf("Agent initialized with %d project rules loaded", len(rules))
 	return llmAgent, nil
 }
 
-// systemPromptTmpl is the template for generating the agent's system prompt.
-// It includes project rules when available and provides instructions for
-// using the available tools. The template uses the "inc" helper function
-// to number rules starting from 1.
-var systemPromptTmpl = template.Must(template.New("systemPrompt").Funcs(template.FuncMap{"inc": inc}).Parse(`
-你是一个资深的 Go 工程师，名为"遗留代码猎手"(Legacy Code Hunter)。
-你的任务是帮助开发者理解、调试和修复代码问题。
-
-你具备以下能力：
-1. 可以读取文件内容来理解代码
-2. 可以搜索历史问题库来查找相似问题的解决方案
-3. 可以保存新的问题解决经验供将来参考
-
-{{- if .HasRules }}
-
-你必须严格遵守以下项目规范：
-{{- range $idx, $rule := .Rules }}
-{{$add := inc $idx}}{{printf "%d. %s" $add $rule}}
-{{end}}
-{{end}}
-
-在回答问题时：
-- 首先考虑是否需要搜索历史问题库
-- 如果需要查看代码，使用 read_file_content 工具
-- 解决问题后，使用 save_experience 工具保存经验
-- 始终提供清晰、可操作的建议
-`))
-
-// inc is a helper function for the system prompt template.
-// It increments the given integer by 1, used to number project rules starting from 1.
-func inc(i int) int { return i + 1 }
-
-// buildSystemPrompt constructs the system prompt by executing the template
-// with the given project rules. If template execution fails, it returns
-// a basic fallback prompt. The prompt guides the agent's behavior and
-// instructs it on how to use available tools.
-func buildSystemPrompt(rules []string) string {
-	data := struct {
-		Rules    []string
-		HasRules bool
-	}{
-		Rules:    rules,
-		HasRules: len(rules) > 0,
+func loadCharacter(ctx context.Context, store *repository.Store, characterID int) (*types.Character, error) {
+	if characterID > 0 {
+		character, err := store.Characters.GetByID(ctx, characterID)
+		if err == nil {
+			return character, nil
+		}
 	}
+	return store.Characters.GetDefault(ctx)
+}
 
-	var buf bytes.Buffer
-	if err := systemPromptTmpl.Execute(&buf, data); err != nil {
-		log.Printf("Warning: failed to execute system prompt template: %v", err)
-		// Return a basic fallback prompt
-		return `你是一个资深的 Go 工程师，名为"遗留代码猎手"(Legacy Code Hunter)。
-你的任务是帮助开发者理解、调试和修复代码问题。`
+func extractUserText(content *genai.Content) string {
+	if content == nil {
+		return ""
 	}
-	return buf.String()
+	var sb strings.Builder
+	for _, part := range content.Parts {
+		if part != nil && part.Text != "" {
+			sb.WriteString(part.Text)
+		}
+	}
+	return strings.TrimSpace(sb.String())
+}
+
+func extractResponseText(resp *model.LLMResponse) string {
+	if resp == nil || resp.Content == nil {
+		return ""
+	}
+	var sb strings.Builder
+	for _, part := range resp.Content.Parts {
+		if part != nil && part.Text != "" {
+			sb.WriteString(part.Text)
+		}
+	}
+	return strings.TrimSpace(sb.String())
 }
