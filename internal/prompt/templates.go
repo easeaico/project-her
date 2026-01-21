@@ -54,7 +54,7 @@ const promptTemplateText = `你是一个角色扮演 AI 伴侣，必须严格遵
 {{- end}}
 
 【回复要求】
-请保持回复简短、自然，避免列表式输出。`
+请保持回复在50个字以内、自然，避免列表式输出。`
 
 var promptTemplate = template.Must(template.New("prompt").Parse(promptTemplateText))
 

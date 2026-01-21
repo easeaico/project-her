@@ -16,16 +16,18 @@ func buildOpenAIParams(req *model.LLMRequest, model string) *openai.ChatCompleti
 	params := openai.ChatCompletionNewParams{
 		Model: req.Model,
 	}
+
 	if req.Model == "" {
 		params.Model = model
 	}
 
-	messages := convertContentsToMessages(req.Contents)
-	if len(messages) > 0 {
-		params.Messages = messages
-	}
-
 	if req.Config != nil {
+		if req.Config.SystemInstruction != nil {
+			if len(req.Config.SystemInstruction.Parts) > 0 && req.Config.SystemInstruction.Parts[0].Text != "" {
+				systemMessage := openai.SystemMessage(req.Config.SystemInstruction.Parts[0].Text)
+				params.Messages = append(params.Messages, systemMessage)
+			}
+		}
 		if req.Config.Temperature != nil {
 			params.Temperature = openai.Float(float64(*req.Config.Temperature))
 		}
@@ -42,6 +44,11 @@ func buildOpenAIParams(req *model.LLMRequest, model string) *openai.ChatCompleti
 				params.Tools = tools
 			}
 		}
+	}
+
+	messages := convertContentsToMessages(req.Contents)
+	if len(messages) > 0 {
+		params.Messages = append(params.Messages, messages...)
 	}
 
 	return &params

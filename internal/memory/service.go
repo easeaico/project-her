@@ -24,7 +24,7 @@ type Service struct {
 }
 
 // NewService returns a memory service.
-func NewService(embedder Embedder, store *repository.Store, topK int, threshold float64) *Service {
+func NewService(embedder Embedder, store *repository.Store, topK int, threshold float64) adkmemory.Service {
 	retriever := NewRetriever(embedder, store.ChatHistory, topK, threshold)
 	return &Service{
 		embedder:            embedder,

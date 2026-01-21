@@ -164,6 +164,7 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 		defer stream.Close()
 
 		pendingTools := make(map[int64]*toolCallBuilder)
+		sentFinal := false
 		for stream.Next() {
 			chunk := stream.Current()
 
@@ -183,6 +184,9 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 					},
 					Partial:      true,
 					TurnComplete: isFinished && len(pendingTools) == 0,
+				}
+				if llmResp.TurnComplete {
+					sentFinal = true
 				}
 				if !yield(llmResp, nil) {
 					return
@@ -236,6 +240,22 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 					Partial:      false,
 					TurnComplete: true,
 				}
+				sentFinal = true
+				if !yield(llmResp, nil) {
+					return
+				}
+			}
+
+			if isFinished && len(pendingTools) == 0 && !sentFinal {
+				llmResp := &model.LLMResponse{
+					Content: &genai.Content{
+						Role:  "model",
+						Parts: []*genai.Part{},
+					},
+					Partial:      false,
+					TurnComplete: true,
+				}
+				sentFinal = true
 				if !yield(llmResp, nil) {
 					return
 				}

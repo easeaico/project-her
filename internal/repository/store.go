@@ -4,42 +4,56 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 // Store holds the DB pool and repositories.
 type Store struct {
-	pool        *pgxpool.Pool
+	db          *gorm.DB
 	Characters  *CharacterRepo
 	ChatHistory *ChatHistoryRepo
 }
 
 // NewStore initializes the PostgreSQL pool and repositories.
 func NewStore(ctx context.Context, databaseURL string) (*Store, error) {
-	pool, err := pgxpool.New(ctx, databaseURL)
+	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create pgx pool: %w", err)
+		return nil, fmt.Errorf("failed to open gorm database: %w", err)
 	}
 
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sql db: %w", err)
+	}
+	if err := sqlDB.PingContext(ctx); err != nil {
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	store := &Store{
-		pool:        pool,
-		Characters:  NewCharacterRepo(pool),
-		ChatHistory: NewChatHistoryRepo(pool),
+		db:          db,
+		Characters:  NewCharacterRepo(db),
+		ChatHistory: NewChatHistoryRepo(db),
 	}
 	return store, nil
 }
 
-func (s *Store) Pool() *pgxpool.Pool {
-	return s.pool
+func (s *Store) Pool() *gorm.DB {
+	return s.db
+}
+
+func (s *Store) DB() *gorm.DB {
+	return s.db
 }
 
 func (s *Store) Close() {
-	if s.pool != nil {
-		s.pool.Close()
+	if s.db == nil {
+		return
 	}
+	sqlDB, err := s.db.DB()
+	if err != nil {
+		return
+	}
+	_ = sqlDB.Close()
 }
