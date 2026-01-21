@@ -12,17 +12,16 @@ import (
 	"github.com/easeaico/adk-memory-agent/internal/types"
 )
 
-// ChatHistoryRepo provides access to chat_history table.
+// ChatHistoryRepo accesses chat history data.
 type ChatHistoryRepo struct {
 	pool *pgxpool.Pool
 }
 
-// NewChatHistoryRepo creates a new ChatHistoryRepo.
+// NewChatHistoryRepo returns a ChatHistoryRepo.
 func NewChatHistoryRepo(pool *pgxpool.Pool) *ChatHistoryRepo {
 	return &ChatHistoryRepo{pool: pool}
 }
 
-// AddMessage inserts a chat message with optional embedding.
 func (r *ChatHistoryRepo) AddMessage(ctx context.Context, msg types.ChatMessage, embedding []float32) error {
 	query := `
 		INSERT INTO chat_history (session_id, character_id, role, content, embedding)
@@ -40,7 +39,6 @@ func (r *ChatHistoryRepo) AddMessage(ctx context.Context, msg types.ChatMessage,
 	return nil
 }
 
-// GetRecentMessages returns recent messages in chronological order.
 func (r *ChatHistoryRepo) GetRecentMessages(ctx context.Context, sessionID string, limit int) ([]types.ChatMessage, error) {
 	query := `
 		SELECT id, session_id, character_id, role, content, created_at
@@ -67,14 +65,13 @@ func (r *ChatHistoryRepo) GetRecentMessages(ctx context.Context, sessionID strin
 		return nil, fmt.Errorf("failed to read chat history rows: %w", rows.Err())
 	}
 
-	// Reverse to chronological order (oldest -> newest)
+	// Oldest -> newest
 	for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
 		results[i], results[j] = results[j], results[i]
 	}
 	return results, nil
 }
 
-// SearchSimilar searches for similar messages by embedding.
 func (r *ChatHistoryRepo) SearchSimilar(ctx context.Context, sessionID string, embedding []float32, topK int, threshold float64) ([]types.RetrievedMemory, error) {
 	if len(embedding) == 0 {
 		return nil, nil

@@ -13,7 +13,7 @@ import (
 	"github.com/easeaico/adk-memory-agent/internal/types"
 )
 
-// Service implements ADK memory.Service and provides RAG helpers.
+// Service implements ADK memory.Service and RAG helpers.
 type Service struct {
 	embedder            Embedder
 	store               *repository.Store
@@ -23,7 +23,7 @@ type Service struct {
 	logger              *slog.Logger
 }
 
-// NewService creates a memory service with retrieval capability.
+// NewService returns a memory service.
 func NewService(embedder Embedder, store *repository.Store, topK int, threshold float64) *Service {
 	retriever := NewRetriever(embedder, store.ChatHistory, topK, threshold)
 	return &Service{
@@ -36,27 +36,23 @@ func NewService(embedder Embedder, store *repository.Store, topK int, threshold 
 	}
 }
 
-// AddSession is a no-op for this demo implementation.
+// AddSession is a no-op.
 func (s *Service) AddSession(ctx context.Context, _ session.Session) error {
 	return nil
 }
 
-// Search returns memory entries relevant to the query.
 func (s *Service) Search(ctx context.Context, req *adkmemory.SearchRequest) (*adkmemory.SearchResponse, error) {
 	if req == nil || req.Query == "" {
 		return &adkmemory.SearchResponse{Memories: nil}, nil
 	}
 
-	// No session_id in SearchRequest; return empty response for now.
 	return &adkmemory.SearchResponse{Memories: nil}, nil
 }
 
-// RetrieveMemories returns retrieved memories for the given session and query.
 func (s *Service) RetrieveMemories(ctx context.Context, sessionID, query string) ([]types.RetrievedMemory, error) {
 	return s.retriever.Retrieve(ctx, sessionID, query)
 }
 
-// SaveMessageAsync saves a message with embedding asynchronously.
 func (s *Service) SaveMessageAsync(parent context.Context, msg types.ChatMessage, embedAsQuery bool) {
 	if s == nil || s.store == nil || s.embedder == nil {
 		return
@@ -84,7 +80,6 @@ func (s *Service) SaveMessageAsync(parent context.Context, msg types.ChatMessage
 	}()
 }
 
-// ToMemoryEntries converts retrieved memories to ADK memory entries.
 func ToMemoryEntries(memories []types.RetrievedMemory) []adkmemory.Entry {
 	if len(memories) == 0 {
 		return nil

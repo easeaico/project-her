@@ -8,7 +8,7 @@ import (
 	"github.com/easeaico/adk-memory-agent/internal/types"
 )
 
-// Retriever provides semantic search against chat history.
+// Retriever performs semantic search over chat history.
 type Retriever struct {
 	embedder             Embedder
 	chatHistoryRepo      *repository.ChatHistoryRepo
@@ -16,7 +16,7 @@ type Retriever struct {
 	similarityThreshold  float64
 }
 
-// NewRetriever creates a new Retriever.
+// NewRetriever returns a retriever.
 func NewRetriever(embedder Embedder, chatHistoryRepo *repository.ChatHistoryRepo, topK int, threshold float64) *Retriever {
 	if topK <= 0 {
 		topK = 5
@@ -32,7 +32,6 @@ func NewRetriever(embedder Embedder, chatHistoryRepo *repository.ChatHistoryRepo
 	}
 }
 
-// Retrieve returns top-k memories for a given query.
 func (r *Retriever) Retrieve(ctx context.Context, sessionID, query string) ([]types.RetrievedMemory, error) {
 	if query == "" {
 		return nil, nil

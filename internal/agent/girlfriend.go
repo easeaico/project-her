@@ -1,4 +1,4 @@
-// Package agent provides agent initialization and configuration.
+// Package agent provides agent initialization.
 package agent
 
 import (
@@ -21,7 +21,7 @@ import (
 	"github.com/easeaico/adk-memory-agent/internal/types"
 )
 
-// NewGirlfriendAgent creates the AI companion agent with RAG and emotion engine.
+// NewGirlfriendAgent builds the companion agent.
 func NewGirlfriendAgent(
 	ctx context.Context,
 	embedder memory.Embedder,
@@ -137,10 +137,10 @@ func NewGirlfriendAgent(
 	}
 
 	llmAgent, err := llmagent.New(llmagent.Config{
-		Name:        "project_her_girlfriend",
-		Description: "高情商、有记忆的 AI 伴侣",
-		Model:       llmModel,
-		IncludeContents: llmagent.IncludeContentsNone,
+		Name:                 "project_her_girlfriend",
+		Description:          "高情商、有记忆的 AI 伴侣",
+		Model:                llmModel,
+		IncludeContents:      llmagent.IncludeContentsNone,
 		BeforeModelCallbacks: []llmagent.BeforeModelCallback{before},
 		AfterModelCallbacks:  []llmagent.AfterModelCallback{after},
 	})

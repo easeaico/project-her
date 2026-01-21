@@ -6,12 +6,12 @@ import (
 	"github.com/easeaico/adk-memory-agent/internal/repository"
 )
 
-// Store is a thin wrapper around repository.Store for compatibility.
+// Store wraps repository.Store for ADK compatibility.
 type Store struct {
 	*repository.Store
 }
 
-// NewPostgresStore initializes a Store backed by PostgreSQL.
+// NewPostgresStore initializes a PostgreSQL-backed store.
 func NewPostgresStore(ctx context.Context, databaseURL string) (*Store, error) {
 	store, err := repository.NewStore(ctx, databaseURL)
 	if err != nil {

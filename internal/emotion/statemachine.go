@@ -1,9 +1,9 @@
 package emotion
 
-// StateMachine updates affection and mood based on sentiment label.
+// StateMachine updates affection and mood.
 type StateMachine struct{}
 
-// NewStateMachine creates a new StateMachine.
+// NewStateMachine returns a StateMachine.
 func NewStateMachine() *StateMachine {
 	return &StateMachine{}
 }

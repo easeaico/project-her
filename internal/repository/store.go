@@ -7,14 +7,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store holds database connection pool and repositories.
+// Store holds the DB pool and repositories.
 type Store struct {
 	pool        *pgxpool.Pool
 	Characters  *CharacterRepo
 	ChatHistory *ChatHistoryRepo
 }
 
-// NewStore initializes a PostgreSQL connection pool and repositories.
+// NewStore initializes the PostgreSQL pool and repositories.
 func NewStore(ctx context.Context, databaseURL string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -34,12 +34,10 @@ func NewStore(ctx context.Context, databaseURL string) (*Store, error) {
 	return store, nil
 }
 
-// Pool exposes the underlying connection pool.
 func (s *Store) Pool() *pgxpool.Pool {
 	return s.pool
 }
 
-// Close closes the connection pool.
 func (s *Store) Close() {
 	if s.pool != nil {
 		s.pool.Close()

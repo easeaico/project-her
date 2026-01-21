@@ -1,6 +1,6 @@
 package emotion
 
-// EmotionLabel represents sentiment label.
+// EmotionLabel is a sentiment label.
 type EmotionLabel string
 
 const (
@@ -9,13 +9,13 @@ const (
 	EmotionNeutral  EmotionLabel = "Neutral"
 )
 
-// EmotionState represents current affection and mood.
+// EmotionState is current affection and mood.
 type EmotionState struct {
 	Affection   int
 	CurrentMood string
 }
 
-// ClampAffection keeps affection within 0-100.
+// ClampAffection bounds affection to 0-100.
 func ClampAffection(score int) int {
 	switch {
 	case score < 0:

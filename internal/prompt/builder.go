@@ -10,7 +10,7 @@ import (
 	"github.com/easeaico/adk-memory-agent/internal/types"
 )
 
-// BuildContext contains all inputs for prompt assembly.
+// BuildContext holds prompt inputs.
 type BuildContext struct {
 	Character   *types.Character
 	Affection   int
@@ -20,13 +20,13 @@ type BuildContext struct {
 	UserMessage string
 }
 
-// Builder assembles layered prompts for the agent.
+// Builder assembles prompt contents.
 type Builder struct {
 	historyLimit int
 	nowFunc      func() time.Time
 }
 
-// NewBuilder creates a prompt Builder.
+// NewBuilder returns a prompt builder.
 func NewBuilder(historyLimit int) *Builder {
 	if historyLimit <= 0 {
 		historyLimit = 10
@@ -37,7 +37,7 @@ func NewBuilder(historyLimit int) *Builder {
 	}
 }
 
-// Build assembles the full prompt into genai contents.
+// Build assembles the prompt contents.
 func (b *Builder) Build(ctx BuildContext) ([]*genai.Content, error) {
 	if ctx.Character == nil {
 		return nil, fmt.Errorf("character is required")

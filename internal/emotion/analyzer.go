@@ -9,17 +9,17 @@ import (
 	"google.golang.org/genai"
 )
 
-// Analyzer uses LLM to classify sentiment.
+// Analyzer classifies conversation sentiment.
 type Analyzer struct {
 	model model.LLM
 }
 
-// NewAnalyzer creates a sentiment analyzer.
+// NewAnalyzer returns an Analyzer.
 func NewAnalyzer(m model.LLM) *Analyzer {
 	return &Analyzer{model: m}
 }
 
-// Analyze returns sentiment label for a conversation snippet.
+// Analyze returns the sentiment label for text.
 func (a *Analyzer) Analyze(ctx context.Context, text string) (EmotionLabel, error) {
 	if a == nil || a.model == nil {
 		return EmotionNeutral, fmt.Errorf("emotion analyzer not configured")

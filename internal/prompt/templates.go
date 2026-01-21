@@ -16,8 +16,11 @@ const promptTemplateText = `你是一个角色扮演 AI 伴侣，必须严格遵
 {{- if .Character.Personality}}
 性格：{{.Character.Personality}}
 {{- end}}
+{{- if .Character.Appearance}}
+外貌：{{.Character.Appearance}}
+{{- end}}
 {{- if .Character.Description}}
-外貌：{{.Character.Description}}
+描述：{{.Character.Description}}
 {{- end}}
 {{- if .Character.Scenario}}
 场景：{{.Character.Scenario}}
@@ -53,11 +56,7 @@ const promptTemplateText = `你是一个角色扮演 AI 伴侣，必须严格遵
 【回复要求】
 请保持回复简短、自然，避免列表式输出。`
 
-var promptTemplate = template.Must(template.New("prompt").Funcs(template.FuncMap{
-	"replaceVars": func(text, charName, userName string) string {
-		return replaceVars(text, charName, userName)
-	},
-}).Parse(promptTemplateText))
+var promptTemplate = template.Must(template.New("prompt").Parse(promptTemplateText))
 
 func replaceVars(text, charName, userName string) string {
 	replaced := strings.ReplaceAll(text, "{{char}}", charName)

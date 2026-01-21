@@ -1,4 +1,4 @@
-// Package models implements OpenAI API adapter for x.ai models.
+// Package models provides OpenAI-compatible adapters.
 package models
 
 import (
@@ -19,7 +19,7 @@ import (
 	"google.golang.org/genai"
 )
 
-// openaiModel implements the OpenAI API client
+// openaiModel wraps an OpenAI-compatible chat client.
 type openaiModel struct {
 	client             *openai.Client
 	name               string
@@ -58,12 +58,10 @@ func NewOpenAIModel(ctx context.Context, modelName string, cfg *genai.ClientConf
 	}, nil
 }
 
-// Name returns the model name
 func (m *openaiModel) Name() string {
 	return m.name
 }
 
-// GenerateContent calls the underlying model.
 func (m *openaiModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
 	m.maybeAppendUserContent(req)
 
@@ -88,12 +86,10 @@ func (m *openaiModel) GenerateContent(ctx context.Context, req *model.LLMRequest
 	}
 }
 
-// addHeaders sets the user-agent header
 func (m *openaiModel) addHeaders(headers http.Header) {
 	headers.Set("user-agent", m.versionHeaderValue)
 }
 
-// generate calls the model synchronously returning result
 func (m *openaiModel) generate(ctx context.Context, req *model.LLMRequest) (*model.LLMResponse, error) {
 	params := buildOpenAIParams(req, m.name)
 
@@ -107,7 +103,6 @@ func (m *openaiModel) generate(ctx context.Context, req *model.LLMRequest) (*mod
 		return &model.LLMResponse{}, nil
 	}
 
-	// Only convert the first choice
 	message := resp.Choices[0].Message
 	content := &genai.Content{
 		Role:  string(message.Role),
@@ -120,7 +115,6 @@ func (m *openaiModel) generate(ctx context.Context, req *model.LLMRequest) (*mod
 		})
 	}
 
-	// Convert ToolCalls (FunctionCall)
 	if len(message.ToolCalls) > 0 {
 		builder := &toolCallBuilder{}
 
@@ -158,7 +152,6 @@ func (m *openaiModel) generate(ctx context.Context, req *model.LLMRequest) (*mod
 	return llmResp, nil
 }
 
-// generateStream returns a stream of responses from the model
 func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest) iter.Seq2[*model.LLMResponse, error] {
 	return func(yield func(*model.LLMResponse, error) bool) {
 		params := buildOpenAIParams(req, m.name)
@@ -180,9 +173,6 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 			choice := chunk.Choices[0]
 			isFinished := choice.FinishReason != ""
 
-			// 1. Handle Text Content
-			// If there is text content, yield it immediately.
-			// If this is the last chunk (isFinished) and there are no pending tools, mark TurnComplete.
 			if choice.Delta.Content != "" {
 				llmResp := &model.LLMResponse{
 					Content: &genai.Content{
@@ -195,11 +185,10 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 					TurnComplete: isFinished && len(pendingTools) == 0,
 				}
 				if !yield(llmResp, nil) {
-					return // Consumer stopped
+					return
 				}
 			}
 
-			// 2. Accumulate Tool Calls
 			for _, tc := range choice.Delta.ToolCalls {
 				index := tc.Index
 				builder, exists := pendingTools[index]
@@ -219,12 +208,9 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 				}
 			}
 
-			// 3. Handle Completion of Tools
-			// If the turn is finished and we have accumulated tools, parse and yield them.
 			if isFinished && len(pendingTools) > 0 {
 				var parts []*genai.Part
 
-				// Sort by index to maintain deterministic order
 				var indices []int64
 				for k := range pendingTools {
 					indices = append(indices, k)
@@ -257,7 +243,6 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 		}
 
 		if err := stream.Err(); err != nil {
-			// Check if error is context cancellation to avoid noisy error logs
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				yield(nil, fmt.Errorf("context cancelled: %w", err))
 				return
@@ -268,7 +253,6 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 	}
 }
 
-// maybeAppendUserContent appends a user content if needed
 func (m *openaiModel) maybeAppendUserContent(req *model.LLMRequest) {
 	if len(req.Contents) == 0 {
 		req.Contents = append(req.Contents, genai.NewContentFromText("Handle the requests as specified in the System Instruction.", "user"))
@@ -279,8 +263,7 @@ func (m *openaiModel) maybeAppendUserContent(req *model.LLMRequest) {
 	}
 }
 
-// parseFunctionArgs parses the JSON arguments string into a map.
-// Returns an empty map if parsing fails or input is empty.
+// parseFunctionArgs returns an empty map on parse failure.
 func parseFunctionArgs(jsonStr string) map[string]any {
 	if jsonStr == "" {
 		return make(map[string]any)

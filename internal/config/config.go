@@ -1,4 +1,4 @@
-// Package config provides configuration loading and validation.
+// Package config loads configuration from environment variables.
 package config
 
 import (
@@ -7,22 +7,21 @@ import (
 	"strconv"
 )
 
-// Config holds the application configuration loaded from environment variables.
-// All fields are required except WorkDir, which defaults to the current working directory.
+// Config holds runtime settings.
 type Config struct {
-	DatabaseURL          string  // PostgreSQL connection string (required)
-	GoogleAPIKey         string  // Google GenAI API key for embeddings (required)
-	XAIAPIKey            string  // xAI API key for Grok LLM (required)
-	WorkDir              string  // Working directory for file operations (optional, defaults to current directory)
-	LLMModel             string  // LLM model name (default: grok-4-fast)
-	EmbeddingModel        string  // Embedding model name (default: text-embedding-004)
-	TopK                 int     // RAG top-k
-	SimilarityThreshold  float64 // RAG similarity threshold
-	HistoryLimit         int     // recent history turns
-	CharacterID          int     // character ID to use
+	DatabaseURL         string
+	GoogleAPIKey        string
+	XAIAPIKey           string
+	WorkDir             string
+	LLMModel            string
+	EmbeddingModel      string
+	TopK                int
+	SimilarityThreshold float64
+	HistoryLimit        int
+	CharacterID         int
 }
 
-// Load loads configuration from environment variables.
+// Load reads env vars, applies defaults, and validates required fields.
 func Load() Config {
 	cfg := Config{
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
@@ -38,7 +37,6 @@ func Load() Config {
 	cfg.HistoryLimit = getEnvInt("HISTORY_LIMIT", 10)
 	cfg.CharacterID = getEnvInt("CHARACTER_ID", 1)
 
-	// Set defaults
 	if cfg.WorkDir == "" {
 		cfg.WorkDir, _ = os.Getwd()
 	}
@@ -49,7 +47,6 @@ func Load() Config {
 		cfg.EmbeddingModel = "text-embedding-004"
 	}
 
-	// Validate required config
 	if cfg.GoogleAPIKey == "" {
 		log.Fatal("GOOGLE_API_KEY environment variable is required")
 	}

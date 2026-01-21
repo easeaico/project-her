@@ -7,20 +7,19 @@ import (
 	"google.golang.org/genai"
 )
 
-// Embedder defines embedding methods for queries and documents.
+// Embedder generates embeddings for text.
 type Embedder interface {
 	EmbedQuery(ctx context.Context, text string) ([]float32, error)
 	EmbedDocument(ctx context.Context, text string) ([]float32, error)
 	EmbedDocuments(ctx context.Context, texts []string) ([][]float32, error)
 }
 
-// GenAIEmbedder implements Embedder using Google GenAI.
 type GenAIEmbedder struct {
 	client *genai.Client
 	model  string
 }
 
-// NewEmbedder creates a GenAIEmbedder using the Gemini API key.
+// NewEmbedder creates a GenAI embedder.
 func NewEmbedder(ctx context.Context, apiKey, modelName string) (*GenAIEmbedder, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("google api key is required for embeddings")
@@ -43,17 +42,14 @@ func NewEmbedder(ctx context.Context, apiKey, modelName string) (*GenAIEmbedder,
 	}, nil
 }
 
-// EmbedQuery embeds a query text for retrieval.
 func (e *GenAIEmbedder) EmbedQuery(ctx context.Context, text string) ([]float32, error) {
 	return e.embed(ctx, text, "RETRIEVAL_QUERY")
 }
 
-// EmbedDocument embeds a document text for storage.
 func (e *GenAIEmbedder) EmbedDocument(ctx context.Context, text string) ([]float32, error) {
 	return e.embed(ctx, text, "RETRIEVAL_DOCUMENT")
 }
 
-// EmbedDocuments embeds multiple documents in sequence.
 func (e *GenAIEmbedder) EmbedDocuments(ctx context.Context, texts []string) ([][]float32, error) {
 	results := make([][]float32, 0, len(texts))
 	for _, text := range texts {

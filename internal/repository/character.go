@@ -9,20 +9,19 @@ import (
 	"github.com/easeaico/adk-memory-agent/internal/types"
 )
 
-// CharacterRepo provides access to characters table.
+// CharacterRepo accesses characters data.
 type CharacterRepo struct {
 	pool *pgxpool.Pool
 }
 
-// NewCharacterRepo creates a new CharacterRepo.
+// NewCharacterRepo returns a CharacterRepo.
 func NewCharacterRepo(pool *pgxpool.Pool) *CharacterRepo {
 	return &CharacterRepo{pool: pool}
 }
 
-// GetByID fetches a character by ID.
 func (r *CharacterRepo) GetByID(ctx context.Context, id int) (*types.Character, error) {
 	query := `
-		SELECT id, name, description, personality, scenario, first_message,
+		SELECT id, name, description, appearance, personality, scenario, first_message,
 		       example_dialogue, system_prompt, avatar_path, affection, current_mood,
 		       created_at, updated_at
 		FROM characters
@@ -34,6 +33,7 @@ func (r *CharacterRepo) GetByID(ctx context.Context, id int) (*types.Character, 
 		&c.ID,
 		&c.Name,
 		&c.Description,
+		&c.Appearance,
 		&c.Personality,
 		&c.Scenario,
 		&c.FirstMessage,
@@ -50,10 +50,9 @@ func (r *CharacterRepo) GetByID(ctx context.Context, id int) (*types.Character, 
 	return &c, nil
 }
 
-// GetDefault fetches the first available character.
 func (r *CharacterRepo) GetDefault(ctx context.Context) (*types.Character, error) {
 	query := `
-		SELECT id, name, description, personality, scenario, first_message,
+		SELECT id, name, description, appearance, personality, scenario, first_message,
 		       example_dialogue, system_prompt, avatar_path, affection, current_mood,
 		       created_at, updated_at
 		FROM characters
@@ -66,6 +65,7 @@ func (r *CharacterRepo) GetDefault(ctx context.Context) (*types.Character, error
 		&c.ID,
 		&c.Name,
 		&c.Description,
+		&c.Appearance,
 		&c.Personality,
 		&c.Scenario,
 		&c.FirstMessage,
@@ -82,7 +82,6 @@ func (r *CharacterRepo) GetDefault(ctx context.Context) (*types.Character, error
 	return &c, nil
 }
 
-// UpdateEmotion updates a character's affection and mood.
 func (r *CharacterRepo) UpdateEmotion(ctx context.Context, id int, affection int, mood string) error {
 	query := `
 		UPDATE characters
