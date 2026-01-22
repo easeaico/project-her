@@ -14,6 +14,8 @@ type Config struct {
 	XAIAPIKey           string
 	WorkDir             string
 	LLMModel            string
+	ImageModel          string
+	AspectRatio         string
 	EmbeddingModel      string
 	TopK                int
 	SimilarityThreshold float64
@@ -24,11 +26,13 @@ type Config struct {
 // Load reads env vars, applies defaults, and validates required fields.
 func Load() Config {
 	cfg := Config{
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		GoogleAPIKey:  os.Getenv("GOOGLE_API_KEY"),
-		XAIAPIKey:     os.Getenv("XAI_API_KEY"),
-		WorkDir:       os.Getenv("WORK_DIR"),
-		LLMModel:      os.Getenv("LLM_MODEL"),
+		DatabaseURL:    os.Getenv("DATABASE_URL"),
+		GoogleAPIKey:   os.Getenv("GOOGLE_API_KEY"),
+		XAIAPIKey:      os.Getenv("XAI_API_KEY"),
+		WorkDir:        os.Getenv("WORK_DIR"),
+		LLMModel:       os.Getenv("LLM_MODEL"),
+		ImageModel:     os.Getenv("IMAGE_MODEL"),
+		AspectRatio:    os.Getenv("ASPECT_RATIO"),
 		EmbeddingModel: os.Getenv("EMBEDDING_MODEL"),
 	}
 
@@ -43,8 +47,14 @@ func Load() Config {
 	if cfg.LLMModel == "" {
 		cfg.LLMModel = "grok-4-fast"
 	}
+	if cfg.ImageModel == "" {
+		cfg.ImageModel = "gemini-3-pro-image-preview"
+	}
 	if cfg.EmbeddingModel == "" {
 		cfg.EmbeddingModel = "text-embedding-004"
+	}
+	if cfg.AspectRatio == "" {
+		cfg.AspectRatio = "9:16"
 	}
 
 	if cfg.GoogleAPIKey == "" {
