@@ -20,11 +20,20 @@ type Character struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
-// ChatMessage is a stored chat message.
-type ChatMessage struct {
+const (
+	MemoryTypeChat    = "chat"
+	MemoryTypePersona = "persona"
+	MemoryTypeFacts   = "facts"
+	MemoryTypeEvents  = "events"
+)
+
+// Memory is a stored memory record.
+type Memory struct {
 	ID          int       `json:"id"`
+	UserID      string    `json:"user_id"`
 	SessionID   string    `json:"session_id"`
 	CharacterID int       `json:"character_id"`
+	Type        string    `json:"type"`
 	Role        string    `json:"role"`
 	Content     string    `json:"content"`
 	Embedding   []float32 `json:"-"` // embedding vectors, not serialized
@@ -35,6 +44,7 @@ type ChatMessage struct {
 type RetrievedMemory struct {
 	Content    string    `json:"content"`
 	Role       string    `json:"role"`
+	Type       string    `json:"type"`
 	Similarity float64   `json:"similarity"`
 	CreatedAt  time.Time `json:"created_at"`
 }

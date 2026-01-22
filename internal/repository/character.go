@@ -7,7 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/easeaico/adk-memory-agent/internal/types"
+	"github.com/easeaico/project-her/internal/agent"
+	"github.com/easeaico/project-her/internal/types"
 )
 
 type characterModel struct {
@@ -32,16 +33,16 @@ func (characterModel) TableName() string {
 }
 
 // CharacterRepo accesses characters data.
-type CharacterRepo struct {
+type characterRepo struct {
 	db *gorm.DB
 }
 
 // NewCharacterRepo returns a CharacterRepo.
-func NewCharacterRepo(db *gorm.DB) *CharacterRepo {
-	return &CharacterRepo{db: db}
+func NewCharacterRepo(db *gorm.DB) agent.CharacterRepo {
+	return &characterRepo{db: db}
 }
 
-func (r *CharacterRepo) GetByID(ctx context.Context, id int) (*types.Character, error) {
+func (r *characterRepo) GetByID(ctx context.Context, id int) (*types.Character, error) {
 	var model characterModel
 	if err := r.db.WithContext(ctx).First(&model, id).Error; err != nil {
 		return nil, fmt.Errorf("failed to get character by id: %w", err)
@@ -49,7 +50,7 @@ func (r *CharacterRepo) GetByID(ctx context.Context, id int) (*types.Character, 
 	return characterFromModel(model), nil
 }
 
-func (r *CharacterRepo) GetDefault(ctx context.Context) (*types.Character, error) {
+func (r *characterRepo) GetDefault(ctx context.Context) (*types.Character, error) {
 	var model characterModel
 	if err := r.db.WithContext(ctx).Order("id ASC").Limit(1).First(&model).Error; err != nil {
 		return nil, fmt.Errorf("failed to get default character: %w", err)
@@ -57,7 +58,7 @@ func (r *CharacterRepo) GetDefault(ctx context.Context) (*types.Character, error
 	return characterFromModel(model), nil
 }
 
-func (r *CharacterRepo) UpdateEmotion(ctx context.Context, id int, affection int, mood string) error {
+func (r *characterRepo) UpdateEmotion(ctx context.Context, id int, affection int, mood string) error {
 	updates := map[string]any{
 		"affection":    affection,
 		"current_mood": mood,

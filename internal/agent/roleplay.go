@@ -11,22 +11,26 @@ import (
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/genai"
 
-	"github.com/easeaico/adk-memory-agent/internal/config"
-	"github.com/easeaico/adk-memory-agent/internal/models"
-	"github.com/easeaico/adk-memory-agent/internal/prompt"
-	"github.com/easeaico/adk-memory-agent/internal/repository"
+	"github.com/easeaico/project-her/internal/config"
+	"github.com/easeaico/project-her/internal/models"
+	"github.com/easeaico/project-her/internal/prompt"
+	"github.com/easeaico/project-her/internal/types"
 )
+
+type CharacterRepo interface {
+	GetByID(ctx context.Context, id int) (*types.Character, error)
+
+	GetDefault(ctx context.Context) (*types.Character, error)
+
+	UpdateEmotion(ctx context.Context, id int, affection int, mood string) error
+}
 
 // NewRolePlayAgent builds the companion agent.
 func NewRolePlayAgent(
 	ctx context.Context,
-	store *repository.Store,
 	cfg *config.Config,
+	characters CharacterRepo,
 ) (agent.Agent, error) {
-	if store == nil || cfg == nil {
-		return nil, fmt.Errorf("store and config are required")
-	}
-
 	llmModel, err := models.NewGrokModel(ctx, cfg.LLMModel, &genai.ClientConfig{
 		APIKey: cfg.XAIAPIKey,
 	})
@@ -35,7 +39,7 @@ func NewRolePlayAgent(
 	}
 
 	builder := prompt.NewBuilder(cfg.HistoryLimit)
-	character, err := store.Characters.GetByID(ctx, cfg.CharacterID)
+	character, err := characters.GetByID(ctx, cfg.CharacterID)
 	if err != nil {
 		return nil, err
 	}

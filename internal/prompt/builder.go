@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/genai"
 
-	"github.com/easeaico/adk-memory-agent/internal/types"
+	"github.com/easeaico/project-her/internal/types"
 )
 
 // BuildContext holds prompt inputs.
@@ -16,7 +16,7 @@ type BuildContext struct {
 	Affection   int
 	Mood        string
 	Memories    []types.RetrievedMemory
-	History     []types.ChatMessage
+	History     []types.Memory
 	UserMessage string
 }
 
@@ -47,7 +47,7 @@ func (b *Builder) Build(ctx BuildContext) ([]*genai.Content, error) {
 	if len(history) > b.historyLimit {
 		history = history[len(history)-b.historyLimit:]
 	}
-	normalizedHistory := make([]types.ChatMessage, len(history))
+	normalizedHistory := make([]types.Memory, len(history))
 	copy(normalizedHistory, history)
 	for i := range normalizedHistory {
 		if normalizedHistory[i].Role == "model" {
@@ -60,7 +60,7 @@ func (b *Builder) Build(ctx BuildContext) ([]*genai.Content, error) {
 		Affection       int
 		Mood            string
 		Memories        []types.RetrievedMemory
-		History         []types.ChatMessage
+		History         []types.Memory
 		Now             string
 		ExampleDialogue string
 	}{
@@ -93,7 +93,7 @@ func (b *Builder) BuildInstruction(ctx BuildContext) (string, error) {
 		Affection       int
 		Mood            string
 		Memories        []types.RetrievedMemory
-		History         []types.ChatMessage
+		History         []types.Memory
 		Now             string
 		ExampleDialogue string
 	}{

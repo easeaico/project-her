@@ -9,9 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	internalagent "github.com/easeaico/adk-memory-agent/internal/agent"
-	"github.com/easeaico/adk-memory-agent/internal/config"
-	"github.com/easeaico/adk-memory-agent/internal/memory"
+	internalagent "github.com/easeaico/project-her/internal/agent"
+	"github.com/easeaico/project-her/internal/config"
+	"github.com/easeaico/project-her/internal/memory"
+	"github.com/easeaico/project-her/internal/repository"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
@@ -36,18 +37,18 @@ func main() {
 		os.Exit(0)
 	}()
 
-	store, err := memory.NewPostgresStore(ctx, cfg.DatabaseURL)
+	store, err := repository.NewStore(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer store.Close()
 
-	// embedder, err := memory.NewEmbedder(ctx, cfg.GoogleAPIKey, cfg.EmbeddingModel)
-	// if err != nil {
-	// 	log.Fatalf("failed to create embedder service: %v", err)
-	// }
+	embedder, err := memory.NewEmbedder(ctx, cfg.GoogleAPIKey, cfg.EmbeddingModel)
+	if err != nil {
+		log.Fatalf("failed to create embedder service: %v", err)
+	}
 
-	// memoryService := memory.NewService(embedder, store.Store, cfg.TopK, cfg.SimilarityThreshold)
+	memoryService := memory.NewService(embedder, store.Memories, cfg.TopK, cfg.SimilarityThreshold)
 	sessionService, err := database.NewSessionService(postgres.Open(cfg.DatabaseURL))
 	if err != nil {
 		log.Fatalf("failed to create session service: %v", err)
@@ -57,15 +58,15 @@ func main() {
 	// 	log.Fatalf("failed to migrate session service: %v", err)
 	// }
 
-	llmAgent, err := internalagent.NewRolePlayAgent(ctx, store.Store, &cfg)
+	llmAgent, err := internalagent.NewRolePlayAgent(ctx, &cfg, store.Characters)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}
 
 	launcherConfig := &launcher.Config{
 		SessionService: sessionService,
-		//	MemoryService:  memoryService,
-		AgentLoader: agent.NewSingleLoader(llmAgent),
+		MemoryService:  memoryService,
+		AgentLoader:    agent.NewSingleLoader(llmAgent),
 	}
 
 	l := full.NewLauncher()

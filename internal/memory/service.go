@@ -2,82 +2,92 @@ package memory
 
 import (
 	"context"
-	"log/slog"
-	"time"
+	"fmt"
 
 	adkmemory "google.golang.org/adk/memory"
 	"google.golang.org/adk/session"
 	"google.golang.org/genai"
 
-	"github.com/easeaico/adk-memory-agent/internal/repository"
-	"github.com/easeaico/adk-memory-agent/internal/types"
+	"github.com/easeaico/project-her/internal/types"
 )
 
 // Service implements ADK memory.Service and RAG helpers.
-type Service struct {
+type service struct {
 	embedder            Embedder
-	store               *repository.Store
-	retriever           *Retriever
+	memories            MemoryRepo
 	topK                int
 	similarityThreshold float64
-	logger              *slog.Logger
+}
+
+type MemoryRepo interface {
+	AddMemory(ctx context.Context, mem types.Memory) error
+	SearchSimilar(ctx context.Context, userID, appName, memoryType string, embedding []float32, topK int, threshold float64) ([]types.RetrievedMemory, error)
 }
 
 // NewService returns a memory service.
-func NewService(embedder Embedder, store *repository.Store, topK int, threshold float64) adkmemory.Service {
-	retriever := NewRetriever(embedder, store.ChatHistory, topK, threshold)
-	return &Service{
+func NewService(embedder Embedder, memories MemoryRepo, topK int, threshold float64) adkmemory.Service {
+	return &service{
 		embedder:            embedder,
-		store:               store,
-		retriever:           retriever,
+		memories:            memories,
 		topK:                topK,
 		similarityThreshold: threshold,
-		logger:              slog.Default(),
 	}
 }
 
 // AddSession is a no-op.
-func (s *Service) AddSession(ctx context.Context, _ session.Session) error {
+func (s *service) AddSession(ctx context.Context, session session.Session) error {
+	characterID, err := session.State().Get("character_id")
+	if err != nil {
+		return err
+	}
+	if characterID == nil {
+		return fmt.Errorf("character_id is not set")
+	}
+
+	events := session.Events()
+	if events.Len() == 0 {
+		return nil
+	}
+
+	event := events.At(events.Len() - 1)
+	content := event.Content.Parts[0].Text
+	embedding, err := s.embedder.EmbedDocument(ctx, content)
+	if err != nil {
+		return err
+	}
+
+	mem := types.Memory{
+		UserID:      session.UserID(),
+		SessionID:   session.ID(),
+		CharacterID: characterID.(int),
+		Type:        types.MemoryTypeChat,
+		Role:        "assistant",
+		Content:     content,
+		Embedding:   embedding,
+	}
+	err = s.memories.AddMemory(ctx, mem)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Service) Search(ctx context.Context, req *adkmemory.SearchRequest) (*adkmemory.SearchResponse, error) {
+func (s *service) Search(ctx context.Context, req *adkmemory.SearchRequest) (*adkmemory.SearchResponse, error) {
 	if req == nil || req.Query == "" {
 		return &adkmemory.SearchResponse{Memories: nil}, nil
 	}
 
-	return &adkmemory.SearchResponse{Memories: nil}, nil
-}
-
-func (s *Service) RetrieveMemories(ctx context.Context, sessionID, query string) ([]types.RetrievedMemory, error) {
-	return s.retriever.Retrieve(ctx, sessionID, query)
-}
-
-func (s *Service) SaveMessageAsync(parent context.Context, msg types.ChatMessage, embedAsQuery bool) {
-	if s == nil || s.store == nil || s.embedder == nil {
-		return
+	vec, err := s.embedder.EmbedQuery(ctx, req.Query)
+	if err != nil {
+		return nil, err
 	}
 
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		var vec []float32
-		var err error
-		if embedAsQuery {
-			vec, err = s.embedder.EmbedQuery(ctx, msg.Content)
-		} else {
-			vec, err = s.embedder.EmbedDocument(ctx, msg.Content)
-		}
-		if err != nil {
-			s.logger.Warn("failed to embed message", "error", err.Error())
-			return
-		}
-
-		if err := s.store.ChatHistory.AddMessage(ctx, msg, vec); err != nil {
-			s.logger.Warn("failed to save message", "error", err.Error())
-		}
-	}()
+	memories, err := s.memories.SearchSimilar(ctx, req.UserID, req.AppName, types.MemoryTypeChat, vec, s.topK, s.similarityThreshold)
+	if err != nil {
+		return nil, err
+	}
+	return &adkmemory.SearchResponse{Memories: ToMemoryEntries(memories)}, nil
 }
 
 func ToMemoryEntries(memories []types.RetrievedMemory) []adkmemory.Entry {

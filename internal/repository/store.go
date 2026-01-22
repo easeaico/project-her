@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/easeaico/project-her/internal/agent"
+	"github.com/easeaico/project-her/internal/memory"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 // Store holds the DB pool and repositories.
 type Store struct {
-	db          *gorm.DB
-	Characters  *CharacterRepo
-	ChatHistory *ChatHistoryRepo
+	db         *gorm.DB
+	Characters agent.CharacterRepo
+	Memories   memory.MemoryRepo
 }
 
 // NewStore initializes the PostgreSQL pool and repositories.
@@ -32,9 +34,9 @@ func NewStore(ctx context.Context, databaseURL string) (*Store, error) {
 	}
 
 	store := &Store{
-		db:          db,
-		Characters:  NewCharacterRepo(db),
-		ChatHistory: NewChatHistoryRepo(db),
+		db:         db,
+		Characters: NewCharacterRepo(db),
+		Memories:   NewMemoryRepo(db),
 	}
 	return store, nil
 }
