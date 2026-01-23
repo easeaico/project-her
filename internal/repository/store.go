@@ -15,6 +15,7 @@ type Store struct {
 	db         *gorm.DB
 	Characters agent.CharacterRepo
 	Memories   memory.MemoryRepo
+	ChatHistories memory.ChatHistoryRepo
 }
 
 // NewStore initializes the PostgreSQL pool and repositories.
@@ -37,6 +38,7 @@ func NewStore(ctx context.Context, databaseURL string) (*Store, error) {
 		db:         db,
 		Characters: NewCharacterRepo(db),
 		Memories:   NewMemoryRepo(db),
+		ChatHistories: NewChatHistoryRepo(db),
 	}
 	return store, nil
 }

@@ -12,11 +12,13 @@ import (
 	internalagent "github.com/easeaico/project-her/internal/agent"
 	"github.com/easeaico/project-her/internal/config"
 	"github.com/easeaico/project-her/internal/memory"
+	"github.com/easeaico/project-her/internal/models"
 	"github.com/easeaico/project-her/internal/repository"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
 	"google.golang.org/adk/session/database"
+	"google.golang.org/genai"
 	"gorm.io/driver/postgres"
 )
 
@@ -48,7 +50,19 @@ func main() {
 		log.Fatalf("failed to create embedder service: %v", err)
 	}
 
-	memoryService := memory.NewService(embedder, store.Memories, cfg.TopK, cfg.SimilarityThreshold)
+	summarizerModel, err := models.NewGrokModel(ctx, cfg.LLMModel, &genai.ClientConfig{
+		APIKey: cfg.XAIAPIKey,
+	})
+	if err != nil {
+		log.Fatalf("failed to create summarizer model: %v", err)
+	}
+
+	summarizer, err := internalagent.NewMemorySummarizer(ctx, summarizerModel)
+	if err != nil {
+		log.Fatalf("failed to create memory summarizer: %v", err)
+	}
+
+	memoryService := memory.NewService(embedder, store.Memories, store.ChatHistories, summarizer, cfg.TopK, cfg.SimilarityThreshold)
 	sessionService, err := database.NewSessionService(postgres.Open(cfg.DatabaseURL))
 	if err != nil {
 		log.Fatalf("failed to create session service: %v", err)

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/genai"
-
 	"github.com/easeaico/project-her/internal/types"
 )
 
@@ -16,7 +14,7 @@ type BuildContext struct {
 	Affection   int
 	Mood        string
 	Memories    []types.RetrievedMemory
-	History     []types.Memory
+	History     []types.ChatHistory
 	UserMessage string
 }
 
@@ -37,52 +35,6 @@ func NewBuilder(historyLimit int) *Builder {
 	}
 }
 
-// Build assembles the prompt contents.
-func (b *Builder) Build(ctx BuildContext) ([]*genai.Content, error) {
-	if ctx.Character == nil {
-		return nil, fmt.Errorf("character is required")
-	}
-
-	history := ctx.History
-	if len(history) > b.historyLimit {
-		history = history[len(history)-b.historyLimit:]
-	}
-	normalizedHistory := make([]types.Memory, len(history))
-	copy(normalizedHistory, history)
-	for i := range normalizedHistory {
-		if normalizedHistory[i].Role == "model" {
-			normalizedHistory[i].Role = ctx.Character.Name
-		}
-	}
-
-	data := struct {
-		Character       *types.Character
-		Affection       int
-		Mood            string
-		Memories        []types.RetrievedMemory
-		History         []types.Memory
-		Now             string
-		ExampleDialogue string
-	}{
-		Character:       ctx.Character,
-		Affection:       ctx.Affection,
-		Mood:            ctx.Mood,
-		Memories:        ctx.Memories,
-		History:         normalizedHistory,
-		Now:             b.nowFunc().Format(time.RFC3339),
-		ExampleDialogue: replaceVars(ctx.Character.ExampleDialogue, ctx.Character.Name, "user"),
-	}
-
-	var buf bytes.Buffer
-	if err := promptTemplate.Execute(&buf, data); err != nil {
-		return nil, fmt.Errorf("failed to build prompt: %w", err)
-	}
-
-	systemContent := genai.NewContentFromText(buf.String(), "system")
-	userContent := genai.NewContentFromText(ctx.UserMessage, "user")
-	return []*genai.Content{systemContent, userContent}, nil
-}
-
 func (b *Builder) BuildInstruction(ctx BuildContext) (string, error) {
 	if ctx.Character == nil {
 		return "", fmt.Errorf("character is required")
@@ -92,15 +44,12 @@ func (b *Builder) BuildInstruction(ctx BuildContext) (string, error) {
 		Character       *types.Character
 		Affection       int
 		Mood            string
-		Memories        []types.RetrievedMemory
-		History         []types.Memory
 		Now             string
 		ExampleDialogue string
 	}{
 		Character:       ctx.Character,
 		Affection:       ctx.Affection,
 		Mood:            ctx.Mood,
-		Memories:        ctx.Memories,
 		Now:             b.nowFunc().Format(time.RFC3339),
 		ExampleDialogue: replaceVars(ctx.Character.ExampleDialogue, ctx.Character.Name, "user"),
 	}

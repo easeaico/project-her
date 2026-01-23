@@ -15,6 +15,7 @@ import (
 	"github.com/easeaico/project-her/internal/models"
 	"github.com/easeaico/project-her/internal/prompt"
 	"github.com/easeaico/project-her/internal/types"
+	"github.com/easeaico/project-her/internal/utils"
 )
 
 type CharacterRepo interface {
@@ -65,7 +66,9 @@ func NewRolePlayAgent(
 		Instruction: instruction,
 		BeforeAgentCallbacks: []agent.BeforeAgentCallback{
 			func(cbCtx agent.CallbackContext) (*genai.Content, error) {
-				userText := extractUserText(cbCtx.UserContent())
+				cbCtx.State().Set("character_id", cfg.CharacterID)
+
+				userText := utils.ExtractContentText(cbCtx.UserContent())
 				trimmed := strings.TrimSpace(userText)
 				if !strings.HasPrefix(trimmed, "/image") {
 					return nil, nil
@@ -91,17 +94,4 @@ func NewRolePlayAgent(
 	}
 
 	return llmAgent, nil
-}
-
-func extractUserText(content *genai.Content) string {
-	if content == nil {
-		return ""
-	}
-	var sb strings.Builder
-	for _, part := range content.Parts {
-		if part != nil && part.Text != "" {
-			sb.WriteString(part.Text)
-		}
-	}
-	return sb.String()
 }

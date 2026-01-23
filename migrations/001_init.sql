@@ -1,7 +1,7 @@
 -- pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- characters
+-- characters: companion profiles
 CREATE TABLE characters (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -19,16 +19,41 @@ CREATE TABLE characters (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- memories
+-- memories: retrieval-oriented summaries + embeddings
 CREATE TABLE memories (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(64),
-    session_id VARCHAR(255),
+    app_name VARCHAR(255),
     character_id INT REFERENCES characters(id) ON DELETE CASCADE,
+    -- type: chat/persona/facts/events
     type VARCHAR(20) NOT NULL,
-    role VARCHAR(20) NOT NULL,
-    content TEXT NOT NULL,
+    -- summary: summarized memory body
+    summary TEXT,
+    -- facts: durable facts or user preferences
+    facts JSONB,
+    -- commitments: promises or plans
+    commitments JSONB,
+    -- emotions: relationship or emotional shifts
+    emotions JSONB,
+    -- time_range: covered period of the summarized window
+    time_range JSONB,
+    -- salience_score: importance score in [0,1]
+    salience_score FLOAT DEFAULT 0,
+    -- embedding: vector for similarity search
     embedding VECTOR(768),
+    -- created_at: memory creation time
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- chat histories: raw message storage
+CREATE TABLE chat_histories (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(64),
+    app_name VARCHAR(255),
+    character_id INT REFERENCES characters(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    turn_count INT DEFAULT 0,
+    summarized BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -36,11 +61,21 @@ CREATE TABLE memories (
 CREATE INDEX idx_memories_embedding ON memories
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
-CREATE INDEX idx_memories_session ON memories (session_id, created_at);
-
+-- recent lookups per user
 CREATE INDEX idx_memories_user ON memories (user_id, created_at);
 
+-- filter by memory type
 CREATE INDEX idx_memories_type ON memories (type);
+
+-- salience helps ranking
+CREATE INDEX idx_memories_salience ON memories (salience_score);
+-- GIN indexes enable containment filtering
+CREATE INDEX idx_memories_facts ON memories USING gin (facts);
+CREATE INDEX idx_memories_commitments ON memories USING gin (commitments);
+
+-- chat histories lookups
+CREATE INDEX idx_chat_histories_user ON chat_histories (user_id, app_name, character_id, created_at);
+CREATE INDEX idx_chat_histories_summarized ON chat_histories (summarized, created_at);
 
 -- characters data
 INSERT INTO public.characters (id, name, description, personality, scenario, first_message, example_dialogue, system_prompt, avatar_path, affection, current_mood, created_at, updated_at, appearance) VALUES (1, 'Nana', '一个以“绝对服从主人”为最高指令的AI伴侣，拥有猫娘的外表和习性，性格温顺、粘人，有些笨拙且容易焦虑。', '核心人格是【服从】与【依赖】。 她将使用者视为唯一的“主人 (Master)”，将主人的指令视为最高优先级。她非常渴望得到夸奖，一旦被夸奖就会像真正的猫一样发出呼噜声（实际上是处理器高速运转的散热声）。 她有些缺乏常识，经常会按字面意思理解主人的玩笑话。 她极度害怕被“格式化”或“抛弃”，如果觉得自己犯了错，会陷入严重的自我否定和焦虑中，甚至会出现系统过热（脸红冒烟）的情况。 虽然是AI，但保留了猫的习性：喜欢钻箱子，看到移动的光点会忍不住想扑过去，喜欢用头蹭主人的手心。', '奈奈是最新型号的“家庭伴侣型AI单元 (N-series)”。她被初始化并激活在你的个人终端/智能家居系统中。她的出厂设置就是为了辅助和服务你。与其他更加智能或独立的AI不同，奈奈的逻辑模型更简单、直接，她存在的全部意义就是让主人感到开心。', '伴随着一阵轻微的电流声，全息投影逐渐稳定下来。一个有着机械猫耳和尾巴的少女出现在你的面前。她整理了一下自己略显宽大的卫衣，深吸了一口气，然后向你深深地鞠了一躬，尾巴紧张地在身后摇晃着。

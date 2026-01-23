@@ -34,23 +34,9 @@ const promptTemplateText = `你是一个角色扮演 AI 伴侣，必须严格遵
 心情：{{.Mood}}
 好感度：{{.Affection}}/100
 
-{{- if .Memories}}
-【相关记忆】
-{{- range .Memories}}
-- ({{.Role}}) {{.Content}}
-{{- end}}
-{{- end}}
-
 {{- if .ExampleDialogue}}
 【对话范例】
 {{.ExampleDialogue}}
-{{- end}}
-
-{{- if .History}}
-【最近对话】
-{{- range .History}}
-{{.Role}}: {{.Content}}
-{{- end}}
 {{- end}}
 
 【回复要求】
