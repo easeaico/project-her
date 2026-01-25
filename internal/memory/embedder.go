@@ -1,3 +1,4 @@
+// Package memory provides embedding helpers and services for conversational memories.
 package memory
 
 import (

@@ -1,3 +1,4 @@
+// Package memory implements conversation memory ingestion, summarization, and search services.
 package memory
 
 import (
@@ -22,13 +23,12 @@ type service struct {
 	summarizer          internalagent.Summarizer
 	topK                int
 	similarityThreshold float64
+	memoryTrunkSize     int
 }
 
 const (
-	// MemoryTrunkSize is the hard cap for a single memory window (turn-based).
-	MemoryTrunkSize = 50
-	RoleAssistant     = "assistant"
-	RoleUser          = "user"
+	RoleAssistant = "assistant"
+	RoleUser      = "user"
 )
 
 type MemoryRepo interface {
@@ -45,7 +45,7 @@ type ChatHistoryRepo interface {
 }
 
 // NewService returns a memory service.
-func NewService(embedder Embedder, memories MemoryRepo, chatHistories ChatHistoryRepo, summarizer internalagent.Summarizer, topK int, threshold float64) adkmemory.Service {
+func NewService(embedder Embedder, memories MemoryRepo, chatHistories ChatHistoryRepo, summarizer internalagent.Summarizer, topK int, threshold float64, memoryTrunkSize int) adkmemory.Service {
 	return &service{
 		embedder:            embedder,
 		memories:            memories,
@@ -53,6 +53,7 @@ func NewService(embedder Embedder, memories MemoryRepo, chatHistories ChatHistor
 		summarizer:          summarizer,
 		topK:                topK,
 		similarityThreshold: threshold,
+		memoryTrunkSize:     memoryTrunkSize,
 	}
 }
 
@@ -91,7 +92,7 @@ func (s *service) AddSession(ctx context.Context, session session.Session) error
 		return err
 	}
 
-	if window == nil || window.TurnCount >= MemoryTrunkSize || window.Summarized {
+	if window == nil || window.TurnCount >= s.memoryTrunkSize || window.Summarized {
 		newWindow := types.ChatHistory{
 			UserID:      userID,
 			AppName:     appName,
@@ -111,7 +112,7 @@ func (s *service) AddSession(ctx context.Context, session session.Session) error
 	if err := s.chatHistories.AppendToWindow(ctx, window.ID, newContent, newTurnCount); err != nil {
 		return err
 	}
-	if newTurnCount < MemoryTrunkSize {
+	if newTurnCount < s.memoryTrunkSize {
 		return nil
 	}
 

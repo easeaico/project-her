@@ -50,13 +50,13 @@ Output requirements:
 // MemorySummarizer uses an ADK agent to summarize memory content.
 type MemorySummarizer struct {
 	// agent is the underlying LLM agent.
-	agent          agent.Agent
+	agent agent.Agent
 	// runner executes the agent in an isolated in-memory session.
-	runner         *runner.Runner
+	runner *runner.Runner
 	// sessionService stores transient sessions for summaries.
 	sessionService session.Service
 	// counter generates unique session IDs.
-	counter        uint64
+	counter uint64
 }
 
 // NewMemorySummarizer creates a summarizer based on ADK llmagent.

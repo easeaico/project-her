@@ -13,14 +13,15 @@ type Config struct {
 	GoogleAPIKey        string
 	XAIAPIKey           string
 	WorkDir             string
-	LLMModel            string
+	ChatModel           string
+	MemoryModel         string
 	ImageModel          string
 	AspectRatio         string
 	EmbeddingModel      string
 	TopK                int
 	SimilarityThreshold float64
-	HistoryLimit        int
 	CharacterID         int
+	MemoryTrunkSize     int
 }
 
 // Load reads env vars, applies defaults, and validates required fields.
@@ -30,7 +31,8 @@ func Load() Config {
 		GoogleAPIKey:   os.Getenv("GOOGLE_API_KEY"),
 		XAIAPIKey:      os.Getenv("XAI_API_KEY"),
 		WorkDir:        os.Getenv("WORK_DIR"),
-		LLMModel:       os.Getenv("LLM_MODEL"),
+		ChatModel:      os.Getenv("CHAT_MODEL"),
+		MemoryModel:    os.Getenv("MEMORY_MODEL"),
 		ImageModel:     os.Getenv("IMAGE_MODEL"),
 		AspectRatio:    os.Getenv("ASPECT_RATIO"),
 		EmbeddingModel: os.Getenv("EMBEDDING_MODEL"),
@@ -38,17 +40,20 @@ func Load() Config {
 
 	cfg.TopK = getEnvInt("TOP_K", 5)
 	cfg.SimilarityThreshold = getEnvFloat("SIMILARITY_THRESHOLD", 0.7)
-	cfg.HistoryLimit = getEnvInt("HISTORY_LIMIT", 10)
 	cfg.CharacterID = getEnvInt("CHARACTER_ID", 1)
+	cfg.MemoryTrunkSize = getEnvInt("MEMORY_TRUNK_SIZE", 100)
 
 	if cfg.WorkDir == "" {
 		cfg.WorkDir, _ = os.Getwd()
 	}
-	if cfg.LLMModel == "" {
-		cfg.LLMModel = "grok-4-fast"
+	if cfg.ChatModel == "" {
+		cfg.ChatModel = "grok-4-fast"
+	}
+	if cfg.MemoryModel == "" {
+		cfg.MemoryModel = "gemini-2.0-flash"
 	}
 	if cfg.ImageModel == "" {
-		cfg.ImageModel = "gemini-3-pro-image-preview"
+		cfg.ImageModel = "gemini-2.0-flash-exp"
 	}
 	if cfg.EmbeddingModel == "" {
 		cfg.EmbeddingModel = "text-embedding-004"
@@ -56,7 +61,6 @@ func Load() Config {
 	if cfg.AspectRatio == "" {
 		cfg.AspectRatio = "9:16"
 	}
-
 	if cfg.GoogleAPIKey == "" {
 		log.Fatal("GOOGLE_API_KEY environment variable is required")
 	}

@@ -1,6 +1,6 @@
 module github.com/easeaico/project-her
 
-go 1.25.0
+go 1.25
 
 require (
 	github.com/google/jsonschema-go v0.3.0

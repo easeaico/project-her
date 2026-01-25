@@ -34,3 +34,4 @@ go.work.sum
 # Agent specific
 bin/
 .DS_Store
+.cache/

@@ -161,7 +161,11 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 		}
 
 		stream := m.client.Chat.Completions.NewStreaming(ctx, *params)
-		defer stream.Close()
+		defer func() {
+			if err := stream.Close(); err != nil {
+				slog.Error("failed to close stream", "error", err.Error())
+			}
+		}()
 
 		pendingTools := make(map[int64]*toolCallBuilder)
 		sentFinal := false
@@ -283,13 +287,13 @@ func (m *openaiModel) maybeAppendUserContent(req *model.LLMRequest) {
 	}
 }
 
-// parseFunctionArgs returns an empty map on parse failure.
 func parseFunctionArgs(jsonStr string) map[string]any {
 	if jsonStr == "" {
 		return make(map[string]any)
 	}
 	var args map[string]any
 	if err := json.Unmarshal([]byte(jsonStr), &args); err != nil {
+		slog.Error("failed to parse function arguments", "error", err.Error(), "json", jsonStr)
 		return make(map[string]any)
 	}
 	return args
