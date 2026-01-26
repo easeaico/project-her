@@ -24,7 +24,6 @@ CREATE TABLE memories (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(64),
     app_name VARCHAR(255),
-    character_id INT REFERENCES characters(id) ON DELETE CASCADE,
     -- type: chat/persona/facts/events
     type VARCHAR(20) NOT NULL,
     -- summary: summarized memory body
@@ -50,7 +49,6 @@ CREATE TABLE chat_histories (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(64),
     app_name VARCHAR(255),
-    character_id INT REFERENCES characters(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     turn_count INT DEFAULT 0,
     summarized BOOLEAN DEFAULT FALSE,
@@ -74,7 +72,7 @@ CREATE INDEX idx_memories_facts ON memories USING gin (facts);
 CREATE INDEX idx_memories_commitments ON memories USING gin (commitments);
 
 -- chat histories lookups
-CREATE INDEX idx_chat_histories_user ON chat_histories (user_id, app_name, character_id, created_at);
+CREATE INDEX idx_chat_histories_user ON chat_histories (user_id, app_name, created_at);
 CREATE INDEX idx_chat_histories_summarized ON chat_histories (summarized, created_at);
 
 -- characters data

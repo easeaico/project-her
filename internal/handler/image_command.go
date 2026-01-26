@@ -11,6 +11,8 @@ import (
 	"google.golang.org/adk/agent"
 	"google.golang.org/genai"
 
+	"github.com/easeaico/project-her/internal/config"
+	"github.com/easeaico/project-her/internal/models"
 	"github.com/easeaico/project-her/internal/types"
 	"github.com/easeaico/project-her/internal/utils"
 )
@@ -37,14 +39,20 @@ const (
 var defaultTemplates = `
 {{define "usage"}}{{.Name}} 眨眨眼说："想看什么图呀？比如：/image 一只在发呆的猫"{{end}}
 {{define "error"}}{{.Name}} 挠挠头："哎呀，画笔断了（生成失败），稍后再试试吧。"{{end}}
-{{define "success"}}{{.Name}} 把画递给你："画好啦！![生成的图片]({{.URL}})"{{end}}
+{{define "success"}}
+{{.Name}} 把画递给你："画好啦！"
+
+![生成的图片]({{.URL}})
+{{end}}
 `
 
 // NewImageCommandHandler creates a new ImageCommandHandler instance.
-func NewImageCommandHandler(character *types.Character, imageService ImageService) (*ImageCommandHandler, error) {
-	if imageService == nil {
-		return nil, fmt.Errorf("image service is required")
+func NewImageCommandHandler(ctx context.Context, cfg *config.Config, character *types.Character) (*ImageCommandHandler, error) {
+	imageService, err := models.NewGeminiImageGenerator(ctx, cfg.GoogleAPIKey, cfg.ImageModel, cfg.AspectRatio)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create image generator: %w", err)
 	}
+
 	tmpl, err := template.New("handlers").Parse(defaultTemplates)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %w", err)
@@ -59,12 +67,6 @@ func NewImageCommandHandler(character *types.Character, imageService ImageServic
 
 // Handle is an agent.BeforeAgentCallback that processes user commands.
 func (h *ImageCommandHandler) Handle(cbCtx agent.CallbackContext) (*genai.Content, error) {
-	if h.character != nil {
-		if err := cbCtx.State().Set("character_id", h.character.ID); err != nil {
-			slog.Error("failed to set character_id in state", "error", err.Error())
-		}
-	}
-
 	userText := utils.ExtractContentText(cbCtx.UserContent())
 	trimmed := strings.TrimSpace(userText)
 

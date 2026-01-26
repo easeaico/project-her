@@ -17,7 +17,6 @@ type memoryModel struct {
 	ID          int
 	UserID      string
 	AppName     string
-	CharacterID int
 	Type        string
 	Summary     string
 	// Facts/Commitments/Emotions/TimeRange are stored as JSONB for retrieval filters.
@@ -72,7 +71,6 @@ func (r *MemoryRepo) AddMemory(ctx context.Context, mem types.Memory) error {
 	record := memoryModel{
 		UserID:      mem.UserID,
 		AppName:     mem.AppName,
-		CharacterID: mem.CharacterID,
 		Type:        mem.Type,
 		Summary:     mem.Summary,
 		Facts:       facts,
@@ -180,7 +178,6 @@ func memoryFromModel(model memoryModel) types.Memory {
 		ID:          model.ID,
 		UserID:      model.UserID,
 		AppName:     model.AppName,
-		CharacterID: model.CharacterID,
 		Type:        model.Type,
 		Summary:     model.Summary,
 		Facts:       facts,

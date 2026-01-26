@@ -16,6 +16,8 @@ import (
 	"github.com/easeaico/project-her/internal/types"
 )
 
+// CharacterRepo exposes persistence operations for companion personas.
+// Implementations live under internal/storage and back the ADK agent.
 type CharacterRepo interface {
 	GetByID(ctx context.Context, id int) (*types.Character, error)
 
@@ -47,22 +49,18 @@ func NewRolePlayAgent(
 		return nil, fmt.Errorf("failed to build prompt: %w", err)
 	}
 
-	imageGenerator, err := models.NewGeminiImageGenerator(ctx, cfg.GoogleAPIKey, cfg.ImageModel, cfg.AspectRatio)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create image generator: %w", err)
-	}
-
-	imgHandler, err := handler.NewImageCommandHandler(character, imageGenerator)
+	imgHandler, err := handler.NewImageCommandHandler(ctx, cfg, character)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create image command handler: %w", err)
 	}
 
 	llmAgent, err := llmagent.New(llmagent.Config{
-		Name:        "project_her_roleplay",
+		Name:        fmt.Sprintf("project_her_roleplay_%d", cfg.CharacterID),
 		Description: "高情商、有记忆的 AI 伴侣",
 		Model:       llmModel,
 		Instruction: instruction,
 		BeforeAgentCallbacks: []agent.BeforeAgentCallback{
+			handler.EnsureSessionStateCallback(character),
 			imgHandler.Handle,
 		},
 	})

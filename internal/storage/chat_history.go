@@ -15,7 +15,6 @@ type chatHistoryModel struct {
 	ID          int
 	UserID      string
 	AppName     string
-	CharacterID int
 	Content     string
 	TurnCount   int
 	Summarized  bool
@@ -38,12 +37,11 @@ func NewChatHistoryRepo(db *gorm.DB) *ChatHistoryRepo {
 
 func (r *ChatHistoryRepo) CreateWindow(ctx context.Context, history types.ChatHistory) error {
 	record := chatHistoryModel{
-		UserID:      history.UserID,
-		AppName:     history.AppName,
-		CharacterID: history.CharacterID,
-		Content:     history.Content,
-		TurnCount:   history.TurnCount,
-		Summarized:  history.Summarized,
+		UserID:     history.UserID,
+		AppName:    history.AppName,
+		Content:    history.Content,
+		TurnCount:  history.TurnCount,
+		Summarized: history.Summarized,
 	}
 	if err := r.db.WithContext(ctx).Create(&record).Error; err != nil {
 		return fmt.Errorf("failed to insert chat history: %w", err)
@@ -51,14 +49,11 @@ func (r *ChatHistoryRepo) CreateWindow(ctx context.Context, history types.ChatHi
 	return nil
 }
 
-func (r *ChatHistoryRepo) GetLatestWindow(ctx context.Context, characterID int, userID, appName string) (*types.ChatHistory, error) {
+func (r *ChatHistoryRepo) GetLatestWindow(ctx context.Context, userID, appName string) (*types.ChatHistory, error) {
 	query := r.db.WithContext(ctx).
 		Where("summarized = ?", false).
 		Order("created_at DESC").
 		Limit(1)
-	if characterID > 0 {
-		query = query.Where("character_id = ?", characterID)
-	}
 	if userID != "" {
 		query = query.Where("user_id = ?", userID)
 	}
@@ -90,11 +85,8 @@ func (r *ChatHistoryRepo) AppendToWindow(ctx context.Context, id int, content st
 	return nil
 }
 
-func (r *ChatHistoryRepo) GetRecent(ctx context.Context, characterID int, userID, appName string, limit int) ([]types.ChatHistory, error) {
+func (r *ChatHistoryRepo) GetRecent(ctx context.Context, userID, appName string, limit int) ([]types.ChatHistory, error) {
 	query := r.db.WithContext(ctx).Order("created_at DESC").Limit(limit)
-	if characterID > 0 {
-		query = query.Where("character_id = ?", characterID)
-	}
 	if userID != "" {
 		query = query.Where("user_id = ?", userID)
 	}
@@ -131,13 +123,12 @@ func (r *ChatHistoryRepo) MarkSummarized(ctx context.Context, id int) error {
 
 func chatHistoryFromModel(model chatHistoryModel) types.ChatHistory {
 	return types.ChatHistory{
-		ID:          model.ID,
-		UserID:      model.UserID,
-		AppName:     model.AppName,
-		CharacterID: model.CharacterID,
-		Content:     model.Content,
-		TurnCount:   model.TurnCount,
-		Summarized:  model.Summarized,
-		CreatedAt:   model.CreatedAt,
+		ID:         model.ID,
+		UserID:     model.UserID,
+		AppName:    model.AppName,
+		Content:    model.Content,
+		TurnCount:  model.TurnCount,
+		Summarized: model.Summarized,
+		CreatedAt:  model.CreatedAt,
 	}
 }

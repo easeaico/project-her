@@ -11,12 +11,14 @@ import (
 	"google.golang.org/genai"
 
 	internalagent "github.com/easeaico/project-her/internal/agent"
+	"github.com/easeaico/project-her/internal/config"
 	"github.com/easeaico/project-her/internal/types"
 	"github.com/easeaico/project-her/internal/utils"
 )
 
 // Service implements ADK memory.Service and RAG helpers.
 type service struct {
+	cfg                 *config.Config
 	embedder            Embedder
 	memories            MemoryRepo
 	chatHistories       ChatHistoryRepo
@@ -31,22 +33,27 @@ const (
 	RoleUser      = "user"
 )
 
+// MemoryRepo persists summarized chat windows and serves similarity lookups.
+// Production code wires this to GORM via internal/storage.
 type MemoryRepo interface {
 	AddMemory(ctx context.Context, mem types.Memory) error
 	SearchSimilar(ctx context.Context, userID, appName, memoryType string, embedding []float32, topK int, threshold float64) ([]types.RetrievedMemory, error)
 }
 
+// ChatHistoryRepo maintains rolling chat windows that eventually become memories.
+// It stores raw dialogue chunks and exposes helpers for appending and rotation.
 type ChatHistoryRepo interface {
-	GetLatestWindow(ctx context.Context, characterID int, userID, appName string) (*types.ChatHistory, error)
+	GetLatestWindow(ctx context.Context, userID, appName string) (*types.ChatHistory, error)
 	CreateWindow(ctx context.Context, history types.ChatHistory) error
 	AppendToWindow(ctx context.Context, id int, content string, turnCount int) error
 	MarkSummarized(ctx context.Context, id int) error
-	GetRecent(ctx context.Context, characterID int, userID, appName string, limit int) ([]types.ChatHistory, error)
+	GetRecent(ctx context.Context, userID, appName string, limit int) ([]types.ChatHistory, error)
 }
 
 // NewService returns a memory service.
-func NewService(embedder Embedder, memories MemoryRepo, chatHistories ChatHistoryRepo, summarizer internalagent.Summarizer, topK int, threshold float64, memoryTrunkSize int) adkmemory.Service {
+func NewService(cfg *config.Config, embedder Embedder, memories MemoryRepo, chatHistories ChatHistoryRepo, summarizer internalagent.Summarizer, topK int, threshold float64, memoryTrunkSize int) adkmemory.Service {
 	return &service{
+		cfg:                 cfg,
 		embedder:            embedder,
 		memories:            memories,
 		chatHistories:       chatHistories,
@@ -59,14 +66,6 @@ func NewService(embedder Embedder, memories MemoryRepo, chatHistories ChatHistor
 
 // AddSession ingests the latest event and maintains rolling memory windows.
 func (s *service) AddSession(ctx context.Context, session session.Session) error {
-	characterID, err := session.State().Get("character_id")
-	if err != nil {
-		return err
-	}
-	cid, ok := characterID.(int)
-	if !ok {
-		return fmt.Errorf("character_id is not set")
-	}
 
 	events := session.Events()
 	if events.Len() == 0 {
@@ -87,19 +86,18 @@ func (s *service) AddSession(ctx context.Context, session session.Session) error
 	userID := session.UserID()
 	appName := session.AppName()
 
-	window, err := s.chatHistories.GetLatestWindow(ctx, cid, userID, appName)
+	window, err := s.chatHistories.GetLatestWindow(ctx, userID, appName)
 	if err != nil {
 		return err
 	}
 
 	if window == nil || window.TurnCount >= s.memoryTrunkSize || window.Summarized {
 		newWindow := types.ChatHistory{
-			UserID:      userID,
-			AppName:     appName,
-			CharacterID: cid,
-			Content:     formatMessage(role, content),
-			TurnCount:   1,
-			Summarized:  false,
+			UserID:     userID,
+			AppName:    appName,
+			Content:    formatMessage(role, content),
+			TurnCount:  1,
+			Summarized: false,
 		}
 		if err := s.chatHistories.CreateWindow(ctx, newWindow); err != nil {
 			return err
@@ -142,7 +140,6 @@ func (s *service) AddSession(ctx context.Context, session session.Session) error
 	memory := types.Memory{
 		UserID:      userID,
 		AppName:     appName,
-		CharacterID: cid,
 		Type:        types.MemoryTypeChat,
 		Summary:     summary,
 		Facts:       summaryResult.Facts,

@@ -3,8 +3,8 @@ package prompt
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"text/template"
-	"time"
 
 	"github.com/easeaico/project-her/internal/types"
 )
@@ -16,7 +16,9 @@ const roleplayPromptTemplateText = `你是一个角色扮演 AI 伴侣，必须�
 4. 保持剧情一致性与情感连续性。
 
 【角色设定】
-姓名：{{.Character.Name}}
+{{- if .Character.Name}}
+名字：{{.Character.Name}}
+{{- end}}
 {{- if .Character.Personality}}
 性格：{{.Character.Personality}}
 {{- end}}
@@ -34,9 +36,9 @@ const roleplayPromptTemplateText = `你是一个角色扮演 AI 伴侣，必须�
 {{- end}}
 
 【当前状态】
-时间：{{.Now}}
-心情：{{.Mood}}
-好感度：{{.Affection}}/100
+时间：{Now}
+心情：{Mood}
+好感度：{Affection}/100
 
 {{- if .ExampleDialogue}}
 【对话范例】
@@ -49,18 +51,18 @@ const roleplayPromptTemplateText = `你是一个角色扮演 AI 伴侣，必须�
 var roleplayPromptTemplate = template.Must(template.New("prompt").Parse(roleplayPromptTemplateText))
 
 func BuildRoleplayInstruction(character *types.Character) (string, error) {
+	exampleDialogue := strings.TrimSpace(character.ExampleDialogue)
+	if exampleDialogue != "" {
+		exampleDialogue = strings.ReplaceAll(exampleDialogue, "{{char}}", character.Name)
+		exampleDialogue = strings.ReplaceAll(exampleDialogue, "{{user}}", "user")
+	}
+
 	data := struct {
 		Character       *types.Character
-		Affection       int
-		Mood            string
-		Now             string
 		ExampleDialogue string
 	}{
 		Character:       character,
-		Affection:       character.Affection,
-		Mood:            character.CurrentMood,
-		Now:             time.Now().Format(time.RFC3339),
-		ExampleDialogue: character.ExampleDialogue,
+		ExampleDialogue: exampleDialogue,
 	}
 
 	var buf bytes.Buffer

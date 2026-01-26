@@ -169,6 +169,7 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 
 		pendingTools := make(map[int64]*toolCallBuilder)
 		sentFinal := false
+		var fullText strings.Builder
 		for stream.Next() {
 			chunk := stream.Current()
 
@@ -179,6 +180,7 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 			isFinished := choice.FinishReason != ""
 
 			if choice.Delta.Content != "" {
+				fullText.WriteString(choice.Delta.Content)
 				llmResp := &model.LLMResponse{
 					Content: &genai.Content{
 						Role: "model",
@@ -251,10 +253,15 @@ func (m *openaiModel) generateStream(ctx context.Context, req *model.LLMRequest)
 			}
 
 			if isFinished && len(pendingTools) == 0 && !sentFinal {
+				text := strings.TrimSpace(fullText.String())
+				var parts []*genai.Part
+				if text != "" {
+					parts = append(parts, &genai.Part{Text: text})
+				}
 				llmResp := &model.LLMResponse{
 					Content: &genai.Content{
 						Role:  "model",
-						Parts: []*genai.Part{},
+						Parts: parts,
 					},
 					Partial:      false,
 					TurnComplete: true,

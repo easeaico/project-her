@@ -14,6 +14,7 @@ import (
 	"google.golang.org/genai"
 
 	internalagent "github.com/easeaico/project-her/internal/agent"
+	"github.com/easeaico/project-her/internal/config"
 	"github.com/easeaico/project-her/internal/types"
 )
 
@@ -23,9 +24,10 @@ func TestServiceAddSessionCreatesNewWindow(t *testing.T) {
 	chatRepo := &mockChatHistoryRepo{}
 	memRepo := &mockMemoryRepo{}
 	embedder := &mockEmbedder{}
-	svc := NewService(embedder, memRepo, chatRepo, nil, 3, 0.5, testMemoryTrunkSize)
+	cfg := &config.Config{CharacterID: 1}
+	svc := NewService(cfg, embedder, memRepo, chatRepo, nil, 3, 0.5, testMemoryTrunkSize)
 
-	sess := newMockSession(1, "user-1", "app-1", []sessionEvent{{role: RoleUser, text: "你好"}})
+	sess := newMockSession("user-1", "app-1", []sessionEvent{{role: RoleUser, text: "你好"}})
 
 	if err := svc.AddSession(context.Background(), sess); err != nil {
 		t.Fatalf("AddSession returned error: %v", err)
@@ -35,7 +37,7 @@ func TestServiceAddSessionCreatesNewWindow(t *testing.T) {
 		t.Fatalf("expected 1 window to be created, got %d", len(chatRepo.created))
 	}
 	created := chatRepo.created[0]
-	if created.UserID != "user-1" || created.AppName != "app-1" || created.CharacterID != 1 {
+	if created.UserID != "user-1" || created.AppName != "app-1" {
 		t.Fatalf("unexpected window metadata: %+v", created)
 	}
 	expectedContent := fmt.Sprintf("%s: %s", RoleUser, "你好")
@@ -49,13 +51,12 @@ func TestServiceAddSessionCreatesNewWindow(t *testing.T) {
 
 func TestServiceAddSessionSummarizesAndStoresMemory(t *testing.T) {
 	window := &types.ChatHistory{
-		ID:          42,
-		UserID:      "user-1",
-		AppName:     "app-1",
-		CharacterID: 1,
-		Content:     formatMessage(RoleAssistant, "上一条"),
-		TurnCount:   testMemoryTrunkSize - 1,
-		Summarized:  false,
+		ID:         42,
+		UserID:     "user-1",
+		AppName:    "app-1",
+		Content:    formatMessage(RoleAssistant, "上一条"),
+		TurnCount:  testMemoryTrunkSize - 1,
+		Summarized: false,
 	}
 	chatRepo := &mockChatHistoryRepo{latestWindow: window}
 	embedder := &mockEmbedder{documentVec: []float32{0.1, 0.2}}
@@ -70,9 +71,10 @@ func TestServiceAddSessionSummarizesAndStoresMemory(t *testing.T) {
 			SalienceScore: 0.8,
 		},
 	}
-	svc := NewService(embedder, memRepo, chatRepo, summarizer, 5, 0.7, testMemoryTrunkSize)
+	cfg := &config.Config{CharacterID: 1}
+	svc := NewService(cfg, embedder, memRepo, chatRepo, summarizer, 5, 0.7, testMemoryTrunkSize)
 
-	sess := newMockSession(1, "user-1", "app-1", []sessionEvent{{role: RoleUser, text: "最后一条"}})
+	sess := newMockSession("user-1", "app-1", []sessionEvent{{role: RoleUser, text: "最后一条"}})
 
 	if err := svc.AddSession(context.Background(), sess); err != nil {
 		t.Fatalf("AddSession returned error: %v", err)
@@ -93,7 +95,7 @@ func TestServiceAddSessionSummarizesAndStoresMemory(t *testing.T) {
 		t.Fatalf("expected 1 memory to be stored, got %d", len(memRepo.added))
 	}
 	stored := memRepo.added[0]
-	if stored.UserID != "user-1" || stored.AppName != "app-1" || stored.CharacterID != 1 {
+	if stored.UserID != "user-1" || stored.AppName != "app-1" {
 		t.Fatalf("unexpected memory metadata: %+v", stored)
 	}
 	if stored.Summary != "结构化摘要" {
@@ -128,7 +130,8 @@ func TestServiceSearchReturnsMemories(t *testing.T) {
 			},
 		},
 	}
-	svc := NewService(embedder, memRepo, chatRepo, nil, 5, 0.5, testMemoryTrunkSize)
+	cfg := &config.Config{CharacterID: 1}
+	svc := NewService(cfg, embedder, memRepo, chatRepo, nil, 5, 0.5, testMemoryTrunkSize)
 
 	resp, err := svc.Search(context.Background(), &adkmemory.SearchRequest{
 		Query:   "喜欢吃什么",
@@ -232,7 +235,7 @@ type appendCall struct {
 	turnCount int
 }
 
-func (m *mockChatHistoryRepo) GetLatestWindow(context.Context, int, string, string) (*types.ChatHistory, error) {
+func (m *mockChatHistoryRepo) GetLatestWindow(context.Context, string, string) (*types.ChatHistory, error) {
 	if m.latestWindow == nil {
 		return nil, nil
 	}
@@ -255,12 +258,12 @@ func (m *mockChatHistoryRepo) MarkSummarized(_ context.Context, id int) error {
 	return nil
 }
 
-func (m *mockChatHistoryRepo) GetRecent(context.Context, int, string, string, int) ([]types.ChatHistory, error) {
+func (m *mockChatHistoryRepo) GetRecent(context.Context, string, string, int) ([]types.ChatHistory, error) {
 	return nil, nil
 }
 
-func newMockSession(characterID int, userID, appName string, events []sessionEvent) session.Session {
-	state := &mockState{data: map[string]any{"character_id": characterID}}
+func newMockSession(userID, appName string, events []sessionEvent) session.Session {
+	state := &mockState{data: map[string]any{}}
 	evtList := make([]*session.Event, 0, len(events))
 	for _, e := range events {
 		evtList = append(evtList, &session.Event{

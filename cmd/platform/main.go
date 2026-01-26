@@ -31,16 +31,8 @@ func main() {
 
 	cfg := config.Load()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigCh
-		fmt.Println("\n正在关闭...")
-		cancel()
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	store, err := repository.NewStore(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -65,7 +57,7 @@ func main() {
 		log.Fatalf("failed to create memory summarizer: %v", err)
 	}
 
-	memoryService := memory.NewService(embedder, store.Memories, store.ChatHistories, summarizer, cfg.TopK, cfg.SimilarityThreshold, cfg.MemoryTrunkSize)
+	memoryService := memory.NewService(&cfg, embedder, store.Memories, store.ChatHistories, summarizer, cfg.TopK, cfg.SimilarityThreshold, cfg.MemoryTrunkSize)
 
 	sessionService, err := database.NewSessionService(postgres.Open(cfg.DatabaseURL))
 	if err != nil {
@@ -84,9 +76,21 @@ func main() {
 	}
 
 	l := full.NewLauncher()
-	if err := l.Execute(ctx, launcherConfig, os.Args[1:]); err != nil {
-		if err != context.Canceled && err != context.DeadlineExceeded {
-			log.Fatalf("Failed to run agent: %v\n\n%s", err, l.CommandLineSyntax())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- l.Execute(ctx, launcherConfig, os.Args[1:])
+	}()
+
+	var execErr error
+	select {
+	case execErr = <-errCh:
+	case <-ctx.Done():
+		fmt.Println("\n正在关闭...")
+	}
+
+	if execErr != nil {
+		if execErr != context.Canceled && execErr != context.DeadlineExceeded {
+			log.Fatalf("Failed to run agent: %v\n\n%s", execErr, l.CommandLineSyntax())
 		}
 	}
 

@@ -36,7 +36,6 @@ type Memory struct {
 	ID          int    `json:"id"`
 	UserID      string `json:"user_id"`
 	AppName     string `json:"app_name"`
-	CharacterID int    `json:"character_id"`
 	Type        string `json:"type"`
 	// Summary stores the final summarized text used as memory body.
 	Summary string `json:"summary"`
@@ -59,7 +58,6 @@ type ChatHistory struct {
 	ID          int       `json:"id"`
 	UserID      string    `json:"user_id"`
 	AppName     string    `json:"app_name"`
-	CharacterID int       `json:"character_id"`
 	Content     string    `json:"content"`
 	TurnCount   int       `json:"turn_count"`
 	Summarized  bool      `json:"summarized"`
