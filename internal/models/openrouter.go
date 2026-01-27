@@ -23,13 +23,13 @@ func NewOpenRouterModel(ctx context.Context, modelName string, cfg *genai.Client
 		return nil, fmt.Errorf("model name cannot be empty")
 	}
 
-	// Create OpenAI client with x.ai configuration
+	// 使用 OpenRouter Base URL 创建 OpenAI 兼容客户端。
 	client := openai.NewClient(
 		option.WithAPIKey(cfg.APIKey),
 		option.WithBaseURL("https://openrouter.ai/api/v1"),
 	)
 
-	// Create header value once, when the model is created
+	// 创建时一次性生成 UA 头，避免每次请求重复拼接。
 	headerValue := fmt.Sprintf("openrouter-go/%s go/%s",
 		"1.0.0", strings.TrimPrefix(runtime.Version(), "go"))
 

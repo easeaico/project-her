@@ -4,26 +4,26 @@
 
 ## 特性
 
-- 🧠 **长期记忆**: 基于 RAG (检索增强生成) 技术，使用 PostgreSQL + pgvector 实现向量检索
-- 💝 **情感系统**: 动态好感度与情绪状态机，AI 的态度随互动变化
-- 🎭 **深度拟人化**: 分层 Prompt 设计，支持自定义角色人设
-- 🖼️ **图片生成**: 集成 Gemini 图片生成能力
-- ⚡ **流式响应**: 支持 SSE 流式输出，低延迟体验
+- 🧠 **长期记忆**：基于 RAG（检索增强生成）技术，使用 PostgreSQL + pgvector 实现向量检索
+- 💝 **情感系统**：动态好感度与情绪状态机，AI 的态度随互动变化
+- 🎭 **深度拟人化**：分层 Prompt（提示词）设计，支持自定义角色人设
+- 🖼️ **图片生成**：集成 Gemini 图片生成能力
+- ⚡ **流式响应**：支持模型流式输出，低延迟体验
 
 ## 技术栈
 
-- **语言**: Go 1.23+
-- **AI SDK**: [google/adk-go](https://github.com/google/adk-go)
-- **LLM**: Grok-4 (可配置其他模型)
-- **数据库**: PostgreSQL 17 + pgvector 扩展
-- **嵌入模型**: Google text-embedding-004
+- **语言**：Go 1.25+
+- **AI SDK（开发工具包）**：[google/adk-go](https://github.com/google/adk-go)
+- **LLM（大语言模型）**：Grok-4（可配置其他模型）
+- **数据库**：PostgreSQL 17 + pgvector 扩展
+- **嵌入模型**：Google text-embedding-004
 
 ## 快速开始
 
 ### 前置要求
 
 ```bash
-# 安装 Go 1.23+
+# 安装 Go 1.25+
 go version
 
 # 安装 PostgreSQL 17
@@ -35,6 +35,21 @@ brew services start postgresql@17
 # 创建数据库
 createdb project_her
 ```
+
+## 术语表
+
+| 术语 | 说明 |
+| --- | --- |
+| LLM | Large Language Model，大语言模型 |
+| RAG | Retrieval-Augmented Generation，检索增强生成 |
+| ADK | Agent Development Kit，代理开发工具包 |
+| Prompt | 提示词 |
+| Embedding | 向量化/嵌入 |
+| Token | 词元（模型计费与上下文长度单位） |
+| URL | 统一资源定位符 |
+| URI | 统一资源标识符 |
+| Base64 | 二进制到文本的编码方式 |
+| pgvector | PostgreSQL 向量扩展 |
 
 ### 安装依赖
 
@@ -48,20 +63,21 @@ go mod download
 
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，填入你的 API Keys
+# 编辑 .env 文件，填入你的 API Key
 ```
 
 必需配置项：
-- `GOOGLE_API_KEY`: Google AI API 密钥
-- `XAI_API_KEY`: xAI (Grok) API 密钥
-- `DATABASE_URL`: PostgreSQL 连接字符串
+- `GOOGLE_API_KEY`：Google AI API 密钥
+- `XAI_API_KEY`：xAI (Grok) API 密钥
+- `DATABASE_URL`：PostgreSQL 连接字符串
 
 可选配置项：
-- `CHAT_MODEL`: 聊天模型名称 (默认: grok-4-fast)
-- `MEMORY_MODEL`: 记忆处理模型名称 (默认: gemini-2.0-flash)
-- `EMBEDDING_MODEL`: 嵌入模型名称 (默认: text-embedding-004)
-- `TOP_K`: RAG 检索数量 (默认: 5)
-- `SIMILARITY_THRESHOLD`: 相似度阈值 (默认: 0.7)
+- `CHAT_MODEL`：聊天模型名称（默认：grok-4-fast）
+- `MEMORY_MODEL`：记忆处理模型名称（默认：gemini-2.0-flash）
+- `EMBEDDING_MODEL`：嵌入模型名称（默认：text-embedding-004）
+- `TOP_K`：RAG 检索数量（默认：5）
+- `SIMILARITY_THRESHOLD`：相似度阈值（默认：0.7）
+- `MEMORY_TRUNK_SIZE`：记忆窗口轮次阈值（默认：100）
 
 ### 初始化数据库
 
@@ -88,12 +104,12 @@ go build -o bin/project-her cmd/platform/main.go
 project-her/
 ├── cmd/platform/         # 应用入口
 ├── internal/
-│   ├── agent/           # Agent 实现 (角色扮演、记忆摘要)
+│   ├── agent/           # Agent 实现（角色扮演、记忆摘要）
 │   ├── config/          # 配置加载
 │   ├── emotion/         # 情感分析与状态机
-│   ├── memory/          # 记忆服务 (嵌入、检索)
+│   ├── memory/          # 记忆服务（嵌入、检索）
 │   ├── models/          # LLM 模型适配器
-│   ├── prompt/          # Prompt 构建器
+│   ├── prompt/          # Prompt（提示词）构建器
 │   ├── repository/      # 数据访问层
 │   ├── types/           # 类型定义
 │   └── utils/           # 工具函数
@@ -105,7 +121,7 @@ project-her/
 
 ### 对话命令
 
-- `/image [描述]`: 生成图片，例如 `/image 一个在雨中撑伞的女孩`
+- `/image [描述]`：生成图片，例如 `/image 一个在雨中撑伞的女孩`
 
 ### 自定义角色
 
@@ -142,7 +158,7 @@ gofmt -w .
 
 ## 安全提示
 
-⚠️ **重要**: `.env` 文件包含敏感信息，已添加到 `.gitignore`。请勿将实际的 API 密钥提交到版本控制系统。
+⚠️ **重要**：`.env` 文件包含敏感信息，已添加到 `.gitignore`。请勿将实际的 API 密钥提交到版本控制系统。
 
 ## 许可证
 

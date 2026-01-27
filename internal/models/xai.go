@@ -12,7 +12,7 @@ import (
 	"google.golang.org/genai"
 )
 
-// NewGrokModel creates an xAI Grok model adapter.
+// NewGrokModel 创建 xAI Grok 的 OpenAI 兼容适配器。
 func NewGrokModel(ctx context.Context, modelName string, cfg *genai.ClientConfig) (model.LLM, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")

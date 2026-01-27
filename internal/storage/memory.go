@@ -14,11 +14,11 @@ import (
 
 // memoryModel maps to the memories table.
 type memoryModel struct {
-	ID          int
-	UserID      string
-	AppName     string
-	Type        string
-	Summary     string
+	ID      int
+	UserID  string
+	AppName string
+	Type    string
+	Summary string
 	// Facts/Commitments/Emotions/TimeRange are stored as JSONB for retrieval filters.
 	Facts       json.RawMessage `gorm:"type:jsonb"`
 	Commitments json.RawMessage `gorm:"type:jsonb"`
@@ -86,11 +86,8 @@ func (r *MemoryRepo) AddMemory(ctx context.Context, mem types.Memory) error {
 	return nil
 }
 
-func (r *MemoryRepo) GetRecentMemories(ctx context.Context, sessionID, memoryType string, limit int) ([]types.Memory, error) {
+func (r *MemoryRepo) GetRecentMemories(ctx context.Context, memoryType string, limit int) ([]types.Memory, error) {
 	query := r.db.WithContext(ctx).Order("created_at DESC").Limit(limit)
-	if sessionID != "" {
-		query = query.Where("session_id = ?", sessionID)
-	}
 	if memoryType != "" {
 		query = query.Where("type = ?", memoryType)
 	}

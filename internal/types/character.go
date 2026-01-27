@@ -33,10 +33,10 @@ const (
 
 // Memory is a stored memory record, designed for retrieval and summarization.
 type Memory struct {
-	ID          int    `json:"id"`
-	UserID      string `json:"user_id"`
-	AppName     string `json:"app_name"`
-	Type        string `json:"type"`
+	ID      int    `json:"id"`
+	UserID  string `json:"user_id"`
+	AppName string `json:"app_name"`
+	Type    string `json:"type"`
 	// Summary stores the final summarized text used as memory body.
 	Summary string `json:"summary"`
 	// Facts captures durable facts or preferences extracted from the window.
@@ -55,13 +55,13 @@ type Memory struct {
 
 // ChatHistory is a bundled chat window stored separately from memories.
 type ChatHistory struct {
-	ID          int       `json:"id"`
-	UserID      string    `json:"user_id"`
-	AppName     string    `json:"app_name"`
-	Content     string    `json:"content"`
-	TurnCount   int       `json:"turn_count"`
-	Summarized  bool      `json:"summarized"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID         int       `json:"id"`
+	UserID     string    `json:"user_id"`
+	AppName    string    `json:"app_name"`
+	Content    string    `json:"content"`
+	TurnCount  int       `json:"turn_count"`
+	Summarized bool      `json:"summarized"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // TimeRange describes the covered period of a memory window.

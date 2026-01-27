@@ -11,7 +11,7 @@ import (
 	"google.golang.org/genai"
 )
 
-// buildOpenAIParams maps ADK requests to OpenAI params.
+// buildOpenAIParams 将 ADK 请求映射为 OpenAI 请求参数。
 func buildOpenAIParams(req *model.LLMRequest, model string) *openai.ChatCompletionNewParams {
 	params := openai.ChatCompletionNewParams{
 		Model: req.Model,
@@ -54,7 +54,7 @@ func buildOpenAIParams(req *model.LLMRequest, model string) *openai.ChatCompleti
 	return &params
 }
 
-// convertToolsToOpenAI maps genai tools to OpenAI tools.
+// convertToolsToOpenAI 将 genai.Tool 映射为 OpenAI 的工具定义。
 func convertToolsToOpenAI(toolsMap []*genai.Tool) []openai.ChatCompletionToolUnionParam {
 	var tools []openai.ChatCompletionToolUnionParam
 
@@ -78,7 +78,7 @@ func convertToolsToOpenAI(toolsMap []*genai.Tool) []openai.ChatCompletionToolUni
 	return tools
 }
 
-// convertFunctionParameters maps function params to OpenAI schema.
+// convertFunctionParameters 将函数参数映射为 OpenAI 的 JSON Schema。
 func convertFunctionParameters(fn *genai.FunctionDeclaration) openai.FunctionParameters {
 	if fn.ParametersJsonSchema != nil {
 		if schema, ok := fn.ParametersJsonSchema.(*jsonschema.Schema); ok {
@@ -92,7 +92,7 @@ func convertFunctionParameters(fn *genai.FunctionDeclaration) openai.FunctionPar
 	return nil
 }
 
-// convertSchemaToJSONSchema converts jsonschema.Schema to JSON Schema.
+// convertSchemaToJSONSchema 将 jsonschema.Schema 转换为 JSON Schema 映射。
 func convertSchemaToJSONSchema(schema *jsonschema.Schema) openai.FunctionParameters {
 	result := make(map[string]any)
 
@@ -114,7 +114,7 @@ func convertSchemaToJSONSchema(schema *jsonschema.Schema) openai.FunctionParamet
 		}
 	}
 
-	// Set required fields
+	// 保证 required 字段存在，便于下游一致处理。
 	if len(schema.Required) > 0 {
 		result["required"] = schema.Required
 	} else {
@@ -124,7 +124,7 @@ func convertSchemaToJSONSchema(schema *jsonschema.Schema) openai.FunctionParamet
 	return openai.FunctionParameters(result)
 }
 
-// convertSchemaProperty converts a schema property to JSON Schema.
+// convertSchemaProperty 将单个 schema 属性转换为 JSON Schema 映射。
 func convertSchemaProperty(schema *jsonschema.Schema) map[string]any {
 	if schema == nil {
 		return nil
@@ -207,7 +207,7 @@ func convertSchemaProperty(schema *jsonschema.Schema) map[string]any {
 	return prop
 }
 
-// convertContentsToMessages maps genai.Content to OpenAI messages.
+// convertContentsToMessages 将 genai.Content 转换为 OpenAI 消息序列。
 func convertContentsToMessages(contents []*genai.Content) []openai.ChatCompletionMessageParamUnion {
 	var messages []openai.ChatCompletionMessageParamUnion
 

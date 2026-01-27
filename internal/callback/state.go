@@ -1,4 +1,4 @@
-package handler
+package callback
 
 import (
 	"errors"
@@ -33,16 +33,16 @@ func ensureStateValue(state session.State, key string, value any) {
 	}
 	_, err := state.Get(key)
 	if err == nil {
-		// Key already exists, skip setting
+		// 已存在键时不覆盖。
 		return
 	}
 	if !errors.Is(err, session.ErrStateKeyNotExist) {
 		slog.Warn("failed to check session state key", "key", key, "error", err.Error())
 		return
 	}
-	// Key doesn't exist, set it
+	// 键不存在则写入初始值。
 	if err := state.Set(key, value); err != nil {
 		slog.Warn("failed to set session state", "key", key, "error", err.Error())
-		// Don't return error, just log it - state operations shouldn't block agent execution
+		// 状态写入失败不阻断主流程，只记录日志。
 	}
 }

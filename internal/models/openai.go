@@ -1,4 +1,4 @@
-// Package models provides OpenAI-compatible adapters.
+// Package models 提供各家模型提供方的适配器实现。
 package models
 
 import (
@@ -19,7 +19,7 @@ import (
 	"google.golang.org/genai"
 )
 
-// openaiModel wraps an OpenAI-compatible chat client.
+// openaiModel 封装 OpenAI 兼容的聊天客户端。
 type openaiModel struct {
 	client             *openai.Client
 	name               string
@@ -44,10 +44,10 @@ func NewOpenAIModel(ctx context.Context, modelName string, cfg *genai.ClientConf
 		return nil, fmt.Errorf("model name cannot be empty")
 	}
 
-	// Create OpenAI client with x.ai configuration
+	// 使用 API Key 创建 OpenAI 兼容客户端。
 	client := openai.NewClient(option.WithAPIKey(cfg.APIKey))
 
-	// Create header value once, when the model is created
+	// 创建时一次性生成 UA 头，避免每次请求重复拼接。
 	headerValue := fmt.Sprintf("openai-go/%s go/%s",
 		"1.0.0", strings.TrimPrefix(runtime.Version(), "go"))
 
@@ -119,7 +119,7 @@ func (m *openaiModel) generate(ctx context.Context, req *model.LLMRequest) (*mod
 		builder := &toolCallBuilder{}
 
 		for _, v := range message.ToolCalls {
-			// The type of the tool. Currently, only `function` is supported.
+			// OpenAI 工具类型目前仅支持 function。
 			if v.Type == "function" {
 				if v.ID != "" {
 					builder.ID = v.ID

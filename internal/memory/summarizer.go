@@ -1,35 +1,32 @@
-// Package agent provides agent initialization.
-package agent
+// Package memory 提供代理初始化与装配能力。
+package memory
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync/atomic"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
-	"google.golang.org/adk/model"
+	"google.golang.org/adk/model/gemini"
 	"google.golang.org/adk/runner"
 	"google.golang.org/adk/session"
 	"google.golang.org/genai"
 
+	"github.com/easeaico/project-her/internal/config"
 	"github.com/easeaico/project-her/internal/types"
 	"github.com/easeaico/project-her/internal/utils"
 )
-
-// Summarizer defines memory summary behavior.
-type Summarizer interface {
-	Summarize(ctx context.Context, content string) (types.MemorySummary, error)
-}
 
 const (
 	memorySummarizerAppName = "project_her_memory"
 	memorySummarizerUserID  = "memory_summarizer"
 )
 
-// memorySummaryInstruction instructs the model to return structured JSON only.
+// memorySummaryInstruction 要求模型仅返回符合结构的 JSON。
 const memorySummaryInstruction = `You are a professional dialogue memory summarizer.
 Your task is to compress the conversation history into a concise summary while preserving the most important information.
 
@@ -47,33 +44,36 @@ Output requirements:
 - Return a valid JSON object that matches the output schema
 - Do not include any extra keys or text outside the JSON object`
 
-// MemorySummarizer uses an ADK agent to summarize memory content.
-type MemorySummarizer struct {
-	// agent is the underlying LLM agent.
-	agent agent.Agent
-	// runner executes the agent in an isolated in-memory session.
-	runner *runner.Runner
-	// sessionService stores transient sessions for summaries.
-	sessionService session.Service
-	// counter generates unique session IDs.
-	counter uint64
+// memorySummarizer 使用 ADK agent 生成记忆摘要。
+type memorySummarizer struct {
+	agent         agent.Agent
+	runner        *runner.Runner
+	charHistories ChatHistoryRepo
+	memoryRepo    MemoryRepo
+	embedder      Embedder
+	counter       uint64
 }
 
-// NewMemorySummarizer creates a summarizer based on ADK llmagent.
-func NewMemorySummarizer(ctx context.Context, llm model.LLM) (*MemorySummarizer, error) {
-	if llm == nil {
-		return nil, fmt.Errorf("llm model is required")
+// NewMemorySummarizer 基于 ADK llmagent 构建摘要器。
+func NewMemorySummarizer(ctx context.Context, cfg *config.Config, charHistories ChatHistoryRepo, memoryRepo MemoryRepo, embedder Embedder) (Summarizer, error) {
+	summarizerModel, err := gemini.NewModel(ctx, cfg.MemoryModel, &genai.ClientConfig{
+		APIKey: cfg.GoogleAPIKey,
+	})
+	if err != nil {
+		slog.Error("failed to create summarizer model", "error", err)
+		return nil, fmt.Errorf("failed to create summarizer model: %w", err)
 	}
 
 	llmAgent, err := llmagent.New(llmagent.Config{
 		Name:            "memory_summarizer",
 		Description:     "对话记忆摘要智能体",
-		Model:           llm,
+		Model:           summarizerModel,
 		Instruction:     memorySummaryInstruction,
 		OutputSchema:    summaryOutputSchema(),
 		IncludeContents: llmagent.IncludeContentsNone,
 	})
 	if err != nil {
+		slog.Error("failed to create memory summarizer agent", "error", err)
 		return nil, fmt.Errorf("failed to create memory summarizer agent: %w", err)
 	}
 
@@ -87,30 +87,35 @@ func NewMemorySummarizer(ctx context.Context, llm model.LLM) (*MemorySummarizer,
 		return nil, fmt.Errorf("failed to create memory summarizer runner: %w", err)
 	}
 
-	return &MemorySummarizer{
-		agent:          llmAgent,
-		runner:         r,
-		sessionService: sessionService,
+	return &memorySummarizer{
+		agent:         llmAgent,
+		runner:        r,
+		charHistories: charHistories,
+		memoryRepo:    memoryRepo,
+		embedder:      embedder,
 	}, nil
 }
 
-// Summarize returns a structured summary of the input content.
-func (s *MemorySummarizer) Summarize(ctx context.Context, content string) (types.MemorySummary, error) {
-	trimmed := strings.TrimSpace(content)
-	if trimmed == "" {
-		return types.MemorySummary{}, nil
+// SummarizeWindow 对指定会话的当前窗口做摘要并写入记忆。
+func (s *memorySummarizer) SummarizeLatestWindow(ctx context.Context, userID, appName string) error {
+	window, err := s.charHistories.GetLatestWindow(ctx, userID, appName)
+	if err != nil {
+		return err
+	}
+	if window == nil {
+		return nil
 	}
 
-	sessionID := fmt.Sprintf("summary-%d", atomic.AddUint64(&s.counter, 1))
-	msg := genai.NewContentFromText(trimmed, "user")
-	events := s.runner.Run(ctx, memorySummarizerUserID, sessionID, msg, agent.RunConfig{
+	summarySessID := fmt.Sprintf("summary-%d", atomic.AddUint64(&s.counter, 1))
+	msg := genai.NewContentFromText(window.Content, "user")
+	events := s.runner.Run(ctx, memorySummarizerUserID, summarySessID, msg, agent.RunConfig{
 		StreamingMode: agent.StreamingModeNone,
 	})
 
 	var last string
 	for event, err := range events {
 		if err != nil {
-			return types.MemorySummary{}, err
+			return err
 		}
 		if event == nil || event.Content == nil {
 			continue
@@ -128,15 +133,34 @@ func (s *MemorySummarizer) Summarize(ctx context.Context, content string) (types
 		}
 	}
 	if last == "" {
-		return types.MemorySummary{}, fmt.Errorf("empty summary response")
+		return fmt.Errorf("empty summary response")
 	}
 
 	summary, err := parseSummaryJSON(last)
 	if err != nil {
-		return types.MemorySummary{}, err
+		return err
 	}
-	summary.SalienceScore = clamp01(summary.SalienceScore)
-	return summary, nil
+
+	embeddingText := buildEmbeddingText(summary.Summary, summary.Facts, summary.Commitments)
+	embedding, err := s.embedder.EmbedDocument(ctx, embeddingText)
+	if err != nil {
+		return err
+	}
+
+	if err := s.memoryRepo.AddMemory(ctx, types.Memory{
+		UserID:      userID,
+		AppName:     appName,
+		Type:        types.MemoryTypeChat,
+		Summary:     summary.Summary,
+		Facts:       summary.Facts,
+		Commitments: summary.Commitments,
+		Emotions:    summary.Emotions,
+		Embedding:   embedding,
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func summaryOutputSchema() *genai.Schema {
@@ -173,7 +197,7 @@ func summaryOutputSchema() *genai.Schema {
 	}
 }
 
-// parseSummaryJSON extracts JSON from model output and decodes it.
+// parseSummaryJSON 从模型输出中提取 JSON 并解码。
 func parseSummaryJSON(raw string) (types.MemorySummary, error) {
 	clean := strings.TrimSpace(raw)
 	start := strings.Index(clean, "{")
@@ -188,13 +212,25 @@ func parseSummaryJSON(raw string) (types.MemorySummary, error) {
 	return summary, nil
 }
 
-// clamp01 keeps a float in [0,1].
-func clamp01(value float64) float64 {
-	if value < 0 {
-		return 0
+// buildEmbeddingText 拼接高价值字段用于向量检索。
+func buildEmbeddingText(summary string, facts, commitments []string) string {
+	var sb strings.Builder
+	sb.WriteString(summary)
+	appendList := func(title string, items []string) {
+		if len(items) == 0 {
+			return
+		}
+		sb.WriteString("\n")
+		sb.WriteString(title)
+		sb.WriteString(": ")
+		for i, item := range items {
+			if i > 0 {
+				sb.WriteString(" ; ")
+			}
+			sb.WriteString(item)
+		}
 	}
-	if value > 1 {
-		return 1
-	}
-	return value
+	appendList("facts", facts)
+	appendList("commitments", commitments)
+	return sb.String()
 }

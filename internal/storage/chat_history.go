@@ -12,13 +12,13 @@ import (
 
 // chatHistoryModel maps to the chat_histories table.
 type chatHistoryModel struct {
-	ID          int
-	UserID      string
-	AppName     string
-	Content     string
-	TurnCount   int
-	Summarized  bool
-	CreatedAt   time.Time
+	ID         int
+	UserID     string
+	AppName    string
+	Content    string
+	TurnCount  int
+	Summarized bool
+	CreatedAt  time.Time
 }
 
 func (chatHistoryModel) TableName() string {
@@ -72,7 +72,7 @@ func (r *ChatHistoryRepo) GetLatestWindow(ctx context.Context, userID, appName s
 	return &result, nil
 }
 
-func (r *ChatHistoryRepo) AppendToWindow(ctx context.Context, id int, content string, turnCount int) error {
+func (r *ChatHistoryRepo) UpdateWindow(ctx context.Context, id int, content string, turnCount int) error {
 	if err := r.db.WithContext(ctx).
 		Model(&chatHistoryModel{}).
 		Where("id = ?", id).
@@ -80,7 +80,7 @@ func (r *ChatHistoryRepo) AppendToWindow(ctx context.Context, id int, content st
 			"content":    content,
 			"turn_count": turnCount,
 		}).Error; err != nil {
-		return fmt.Errorf("failed to append chat window: %w", err)
+		return fmt.Errorf("failed to update chat window: %w", err)
 	}
 	return nil
 }

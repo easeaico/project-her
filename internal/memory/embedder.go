@@ -1,4 +1,4 @@
-// Package memory provides embedding helpers and services for conversational memories.
+// Package memory 实现对话记忆的向量化与检索能力。
 package memory
 
 import (
@@ -8,7 +8,7 @@ import (
 	"google.golang.org/genai"
 )
 
-// Embedder generates embeddings for text.
+// Embedder 负责将文本转换为向量表示。
 type Embedder interface {
 	EmbedQuery(ctx context.Context, text string) ([]float32, error)
 	EmbedDocument(ctx context.Context, text string) ([]float32, error)
@@ -20,8 +20,8 @@ type GenAIEmbedder struct {
 	model  string
 }
 
-// NewEmbedder creates a GenAI embedder.
-func NewEmbedder(ctx context.Context, apiKey, modelName string) (*GenAIEmbedder, error) {
+// newEmbedder 创建 GenAI 的向量化实现。
+func newEmbedder(ctx context.Context, apiKey, modelName string) (*GenAIEmbedder, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("google api key is required for embeddings")
 	}
