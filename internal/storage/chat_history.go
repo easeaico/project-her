@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/easeaico/project-her/internal/memory"
 	"github.com/easeaico/project-her/internal/types"
 )
 
@@ -25,17 +26,20 @@ func (chatHistoryModel) TableName() string {
 	return "chat_histories"
 }
 
-// ChatHistoryRepo accesses chat history data.
-type ChatHistoryRepo struct {
+// chatHistoryRepo accesses chat history data.
+type chatHistoryRepo struct {
 	db *gorm.DB
 }
 
 // NewChatHistoryRepo returns a ChatHistoryRepo.
-func NewChatHistoryRepo(db *gorm.DB) *ChatHistoryRepo {
-	return &ChatHistoryRepo{db: db}
+func NewChatHistoryRepo(db *gorm.DB) memory.ChatHistoryRepo {
+	return &chatHistoryRepo{db: db}
 }
 
-func (r *ChatHistoryRepo) CreateWindow(ctx context.Context, history types.ChatHistory) error {
+func (r *chatHistoryRepo) CreateWindow(ctx context.Context, history *types.ChatHistory) error {
+	if history == nil {
+		return fmt.Errorf("history cannot be nil")
+	}
 	record := chatHistoryModel{
 		UserID:     history.UserID,
 		AppName:    history.AppName,
@@ -49,7 +53,7 @@ func (r *ChatHistoryRepo) CreateWindow(ctx context.Context, history types.ChatHi
 	return nil
 }
 
-func (r *ChatHistoryRepo) GetLatestWindow(ctx context.Context, userID, appName string) (*types.ChatHistory, error) {
+func (r *chatHistoryRepo) GetLatestWindow(ctx context.Context, userID, appName string) (*types.ChatHistory, error) {
 	query := r.db.WithContext(ctx).
 		Where("summarized = ?", false).
 		Order("created_at DESC").
@@ -72,10 +76,11 @@ func (r *ChatHistoryRepo) GetLatestWindow(ctx context.Context, userID, appName s
 	return &result, nil
 }
 
-func (r *ChatHistoryRepo) UpdateWindow(ctx context.Context, id int, content string, turnCount int) error {
+func (r *chatHistoryRepo) UpdateWindow(ctx context.Context, history *types.ChatHistory, content string, turnCount int) error {
 	if err := r.db.WithContext(ctx).
 		Model(&chatHistoryModel{}).
-		Where("id = ?", id).
+		Where("id = ?", history.ID).
+		Where("turn_count = ?", history.TurnCount).
 		Updates(map[string]any{
 			"content":    content,
 			"turn_count": turnCount,
@@ -85,7 +90,7 @@ func (r *ChatHistoryRepo) UpdateWindow(ctx context.Context, id int, content stri
 	return nil
 }
 
-func (r *ChatHistoryRepo) GetRecent(ctx context.Context, userID, appName string, limit int) ([]types.ChatHistory, error) {
+func (r *chatHistoryRepo) GetRecent(ctx context.Context, userID, appName string, limit int) ([]types.ChatHistory, error) {
 	query := r.db.WithContext(ctx).Order("created_at DESC").Limit(limit)
 	if userID != "" {
 		query = query.Where("user_id = ?", userID)
@@ -111,7 +116,7 @@ func (r *ChatHistoryRepo) GetRecent(ctx context.Context, userID, appName string,
 	return results, nil
 }
 
-func (r *ChatHistoryRepo) MarkSummarized(ctx context.Context, id int) error {
+func (r *chatHistoryRepo) MarkSummarized(ctx context.Context, id int) error {
 	if err := r.db.WithContext(ctx).
 		Model(&chatHistoryModel{}).
 		Where("id = ?", id).

@@ -18,14 +18,11 @@ import (
 
 // service 实现 ADK memory.Service，并提供检索增强所需的辅助能力。
 type memoryService struct {
-	cfg                 *config.Config
-	embedder            Embedder
-	memories            MemoryRepo
-	chatHistories       ChatHistoryRepo
-	summarizer          Summarizer
-	topK                int
-	similarityThreshold float64
-	memoryTrunkSize     int
+	cfg           *config.Config
+	embedder      Embedder
+	memories      MemoryRepo
+	chatHistories ChatHistoryRepo
+	summarizer    Summarizer
 }
 
 const (
@@ -49,8 +46,8 @@ type MemoryRepo interface {
 // 它存储原始对话片段，并提供追加与窗口轮转能力。
 type ChatHistoryRepo interface {
 	GetLatestWindow(ctx context.Context, userID, appName string) (*types.ChatHistory, error)
-	CreateWindow(ctx context.Context, history types.ChatHistory) error
-	UpdateWindow(ctx context.Context, id int, content string, turnCount int) error
+	CreateWindow(ctx context.Context, history *types.ChatHistory) error
+	UpdateWindow(ctx context.Context, history *types.ChatHistory, content string, turnCount int) error
 	MarkSummarized(ctx context.Context, id int) error
 	GetRecent(ctx context.Context, userID, appName string, limit int) ([]types.ChatHistory, error)
 }
@@ -96,7 +93,7 @@ func (s *memoryService) AddSession(ctx context.Context, session session.Session)
 		return err
 	}
 
-	if window == nil || window.TurnCount >= s.memoryTrunkSize || window.Summarized {
+	if window == nil || window.TurnCount >= s.cfg.MemoryTrunkSize || window.Summarized {
 		newWindow := types.ChatHistory{
 			UserID:     userID,
 			AppName:    appName,
@@ -104,15 +101,22 @@ func (s *memoryService) AddSession(ctx context.Context, session session.Session)
 			TurnCount:  2,
 			Summarized: false,
 		}
-		if err := s.chatHistories.CreateWindow(ctx, newWindow); err != nil {
+		if err := s.chatHistories.CreateWindow(ctx, &newWindow); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err := s.chatHistories.UpdateWindow(ctx, window.ID, newContent, 2); err != nil {
+	newTurnCount := window.TurnCount + 2
+	newContent = fmt.Sprintf("%s%s", window.Content, newContent)
+	if err := s.chatHistories.UpdateWindow(ctx, window, newContent, newTurnCount); err != nil {
 		return err
 	}
+
+	if newTurnCount >= s.cfg.MemoryTrunkSize {
+		go s.summarizer.SummarizeLatestWindow(ctx, userID, appName)
+	}
+
 	return nil
 }
 
@@ -126,7 +130,7 @@ func (s *memoryService) Search(ctx context.Context, req *adkmemory.SearchRequest
 		return nil, err
 	}
 
-	memories, err := s.memories.SearchSimilar(ctx, req.UserID, req.AppName, types.MemoryTypeChat, vec, s.topK, s.similarityThreshold)
+	memories, err := s.memories.SearchSimilar(ctx, req.UserID, req.AppName, types.MemoryTypeChat, vec, s.cfg.TopK, s.cfg.SimilarityThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +178,7 @@ func extractLatestPair(events session.Events) (assistantText, userText string) {
 	}
 	return assistantText, userText
 }
+
 func ToMemoryEntries(memories []types.RetrievedMemory) []adkmemory.Entry {
 	if len(memories) == 0 {
 		return nil
