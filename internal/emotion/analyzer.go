@@ -10,6 +10,7 @@ import (
 )
 
 // Analyzer classifies conversation sentiment.
+// It is a standalone LLM-based classifier and not used in the single-call flow.
 type Analyzer struct {
 	model model.LLM
 }

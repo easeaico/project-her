@@ -34,7 +34,7 @@ func (characterModel) TableName() string {
 	return "characters"
 }
 
-// CharacterRepo accesses characters data.
+// CharacterRepo accesses characters data, including persisted emotion stability fields.
 type characterRepo struct {
 	db *gorm.DB
 }

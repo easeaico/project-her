@@ -1,6 +1,6 @@
 package emotion
 
-// StateMachine updates affection and mood.
+// StateMachine updates affection and mood with hysteresis to avoid rapid flips.
 type StateMachine struct{}
 
 const (
@@ -14,7 +14,7 @@ func NewStateMachine() *StateMachine {
 	return &StateMachine{}
 }
 
-// Update returns the updated emotion state.
+// Update returns the updated emotion state using label streak thresholds.
 func (s *StateMachine) Update(state EmotionState, label EmotionLabel) EmotionState {
 	switch label {
 	case EmotionPositive:
@@ -36,10 +36,12 @@ func (s *StateMachine) Update(state EmotionState, label EmotionLabel) EmotionSta
 	desired := deriveMood(state.Affection, label, state.CurrentMood)
 	switch label {
 	case EmotionPositive:
+		// Only switch to Happy after consecutive positives.
 		if desired != state.CurrentMood && streak >= positiveThreshold && streak >= minMoodTurns {
 			state.CurrentMood = desired
 		}
 	case EmotionNegative:
+		// Only switch to Sad/Angry after consecutive negatives.
 		if desired != state.CurrentMood && streak >= negativeThreshold && streak >= minMoodTurns {
 			state.CurrentMood = desired
 		}

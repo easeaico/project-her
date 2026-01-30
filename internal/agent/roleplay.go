@@ -82,7 +82,7 @@ const roleplayPromptTemplateText = `你是一个角色扮演 AI 伴侣，必须�
 
 var roleplayPromptTemplate = template.Must(template.New("prompt").Parse(roleplayPromptTemplateText))
 
-// NewRolePlayAgent 组装角色扮演代理并注入所需依赖。
+// NewRolePlayAgent 组装角色扮演代理并注入所需依赖，输出需符合结构化 JSON 要求。
 func NewRolePlayAgent(
 	ctx context.Context,
 	cfg *config.Config,

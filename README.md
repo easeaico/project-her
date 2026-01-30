@@ -5,10 +5,11 @@
 ## 特性
 
 - 🧠 **长期记忆**：基于 RAG（检索增强生成）技术，使用 PostgreSQL + pgvector 实现向量检索
-- 💝 **情感系统**：动态好感度与情绪状态机，AI 的态度随互动变化
+- 💝 **情感系统**：动态好感度与情绪状态机，主模型输出情绪标签并持久化情绪稳定状态
 - 🎭 **深度拟人化**：分层 Prompt（提示词）设计，支持自定义角色人设
 - 🖼️ **图片生成**：集成 Gemini 图片生成能力
 - ⚡ **流式响应**：支持模型流式输出，低延迟体验
+- 📌 **记忆排序**：基于 salience_score 的记忆重要性排序
 
 ## 技术栈
 
@@ -83,6 +84,7 @@ cp .env.example .env
 
 ```bash
 psql -d project_her -f migrations/001_init.sql
+psql -d project_her -f migrations/002_emotion_state.sql
 ```
 
 ### 运行应用
@@ -122,6 +124,16 @@ project-her/
 ### 对话命令
 
 - `/image [描述]`：生成图片，例如 `/image 一个在雨中撑伞的女孩`
+
+### 结构化输出说明
+
+主模型必须返回 JSON 格式：
+
+```json
+{"reply":"你的回复","emotion":"Positive|Negative|Neutral"}
+```
+
+系统会解析该结构并仅将 `reply` 展示给用户，同时用 `emotion` 更新好感度与心情。
 
 ### 自定义角色
 

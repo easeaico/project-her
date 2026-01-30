@@ -13,7 +13,8 @@ import (
 	"github.com/easeaico/project-her/internal/utils"
 )
 
-// NewEmotionCallback parses model output for emotion and updates state.
+// NewEmotionCallback parses structured JSON output, updates emotion state, and rewrites reply content
+// so the user only sees the reply field.
 func NewEmotionCallback(service *emotion.Service) llmagent.AfterModelCallback {
 	return func(ctx agent.CallbackContext, resp *model.LLMResponse, err error) (*model.LLMResponse, error) {
 		if err != nil {

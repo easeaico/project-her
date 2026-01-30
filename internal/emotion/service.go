@@ -7,14 +7,14 @@ import (
 	"github.com/easeaico/project-her/internal/types"
 )
 
-// CharacterRepo defines emotion update and fetch behavior.
+// CharacterRepo defines emotion update and fetch behavior, including stability fields.
 type CharacterRepo interface {
 	GetByID(ctx context.Context, id int) (*types.Character, error)
 	GetDefault(ctx context.Context) (*types.Character, error)
 	UpdateEmotion(ctx context.Context, id int, affection int, mood string, lastLabel string, moodTurns int) error
 }
 
-// Service updates emotion state based on labels.
+// Service updates emotion state based on structured labels from the main model output.
 type Service struct {
 	stateMachine *StateMachine
 	characters   CharacterRepo
@@ -30,7 +30,7 @@ func NewService(stateMachine *StateMachine, characters CharacterRepo, characterI
 	}
 }
 
-// UpdateFromLabel updates affection and mood based on sentiment label.
+// UpdateFromLabel updates affection and mood based on sentiment label and persists stability fields.
 func (s *Service) UpdateFromLabel(ctx context.Context, label EmotionLabel) error {
 	if s == nil || s.stateMachine == nil {
 		return fmt.Errorf("emotion service not configured")
