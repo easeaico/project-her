@@ -21,6 +21,7 @@ func EnsureSessionStateCallback(character *types.Character) agent.BeforeAgentCal
 
 		ensureStateValue(state, "Affection", character.Affection)
 		ensureStateValue(state, "Mood", character.CurrentMood)
+		ensureStateValue(state, "MoodInstruction", "")
 		ensureStateValue(state, "Now", time.Now().Format(time.RFC3339))
 
 		return nil, nil

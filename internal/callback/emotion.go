@@ -40,8 +40,19 @@ func NewEmotionCallback(service *emotion.Service) llmagent.AfterModelCallback {
 
 		if service != nil {
 			label := emotion.EmotionLabel(parsed.Emotion)
-			if updateErr := service.UpdateFromLabel(ctx, label); updateErr != nil {
+			state, updateErr := service.UpdateFromLabel(ctx, label)
+			if updateErr != nil {
 				slog.Error("failed to update emotion state", "error", updateErr.Error())
+			} else {
+				if err := ctx.State().Set("Mood", state.CurrentMood); err != nil {
+					slog.Warn("failed to update session mood", "error", err.Error())
+				}
+				if err := ctx.State().Set("Affection", state.Affection); err != nil {
+					slog.Warn("failed to update session affection", "error", err.Error())
+				}
+				if err := ctx.State().Set("MoodInstruction", emotion.MoodInstruction(state.CurrentMood)); err != nil {
+					slog.Warn("failed to update session mood instruction", "error", err.Error())
+				}
 			}
 		}
 

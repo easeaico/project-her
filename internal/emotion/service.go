@@ -31,31 +31,31 @@ func NewService(stateMachine *StateMachine, characters CharacterRepo, characterI
 }
 
 // UpdateFromLabel updates affection and mood based on sentiment label and persists stability fields.
-func (s *Service) UpdateFromLabel(ctx context.Context, label EmotionLabel) error {
+func (s *Service) UpdateFromLabel(ctx context.Context, label EmotionLabel) (EmotionState, error) {
 	if s == nil || s.stateMachine == nil {
-		return fmt.Errorf("emotion service not configured")
+		return EmotionState{}, fmt.Errorf("emotion service not configured")
 	}
 	if s.characters == nil {
-		return fmt.Errorf("character repo is nil")
+		return EmotionState{}, fmt.Errorf("character repo is nil")
 	}
 
 	var character *types.Character
 	if s.characterID > 0 {
 		char, err := s.characters.GetByID(ctx, s.characterID)
 		if err != nil {
-			return fmt.Errorf("failed to get character by id: %w", err)
+			return EmotionState{}, fmt.Errorf("failed to get character by id: %w", err)
 		}
 		character = char
 	} else {
 		char, err := s.characters.GetDefault(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get default character: %w", err)
+			return EmotionState{}, fmt.Errorf("failed to get default character: %w", err)
 		}
 		character = char
 	}
 
 	if character == nil {
-		return fmt.Errorf("character not found")
+		return EmotionState{}, fmt.Errorf("character not found")
 	}
 
 	next := s.stateMachine.Update(EmotionState{
@@ -66,7 +66,7 @@ func (s *Service) UpdateFromLabel(ctx context.Context, label EmotionLabel) error
 	}, label)
 
 	if err := s.characters.UpdateEmotion(ctx, character.ID, next.Affection, next.CurrentMood, next.LastLabel, next.MoodTurns); err != nil {
-		return fmt.Errorf("failed to update emotion: %w", err)
+		return EmotionState{}, fmt.Errorf("failed to update emotion: %w", err)
 	}
-	return nil
+	return next, nil
 }

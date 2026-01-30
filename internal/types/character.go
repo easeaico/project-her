@@ -13,7 +13,9 @@ type Character struct {
 	FirstMessage    string    `json:"first_message"`
 	ExampleDialogue string    `json:"example_dialogue"`
 	SystemPrompt    string    `json:"system_prompt"`
+	SystemPromptRaw string    `json:"system_prompt_raw"`
 	AvatarPath      string    `json:"avatar_path"`
+	AvatarURL       string    `json:"avatar_url"`
 	Affection       int       `json:"affection"`
 	CurrentMood     string    `json:"current_mood"`
 	LastLabel       string    `json:"last_label"`

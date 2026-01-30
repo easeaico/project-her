@@ -63,6 +63,7 @@ const roleplayPromptTemplateText = `你是一个角色扮演 AI 伴侣，必须�
 时间：{Now}
 心情：{Mood}
 好感度：{Affection}/100
+{MoodInstruction?}
 
 {{- if .ExampleDialogue}}
 【对话范例】

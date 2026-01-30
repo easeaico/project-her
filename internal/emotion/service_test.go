@@ -33,7 +33,7 @@ func TestServiceUpdateFromLabelPositive(t *testing.T) {
 	repo := &fakeCharacterRepo{character: &types.Character{ID: 1, Affection: 50, CurrentMood: "Neutral"}}
 	service := NewService(NewStateMachine(), repo, 1)
 
-	if err := service.UpdateFromLabel(context.Background(), EmotionPositive); err != nil {
+	if _, err := service.UpdateFromLabel(context.Background(), EmotionPositive); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if repo.updated == nil || repo.updated.Affection != 55 || repo.updated.CurrentMood != "Neutral" {
@@ -48,7 +48,7 @@ func TestServiceUpdateFromLabelNegativeLowAffection(t *testing.T) {
 	repo := &fakeCharacterRepo{character: &types.Character{ID: 1, Affection: 20, CurrentMood: "Neutral"}}
 	service := NewService(NewStateMachine(), repo, 1)
 
-	if err := service.UpdateFromLabel(context.Background(), EmotionNegative); err != nil {
+	if _, err := service.UpdateFromLabel(context.Background(), EmotionNegative); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if repo.updated == nil || repo.updated.Affection != 10 || repo.updated.CurrentMood != "Neutral" {
@@ -63,7 +63,7 @@ func TestServiceUpdateFromLabelNeutralKeepsMood(t *testing.T) {
 	repo := &fakeCharacterRepo{character: &types.Character{ID: 1, Affection: 50, CurrentMood: "Sad"}}
 	service := NewService(NewStateMachine(), repo, 1)
 
-	if err := service.UpdateFromLabel(context.Background(), EmotionNeutral); err != nil {
+	if _, err := service.UpdateFromLabel(context.Background(), EmotionNeutral); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if repo.updated == nil || repo.updated.Affection != 51 || repo.updated.CurrentMood != "Sad" {
@@ -78,7 +78,7 @@ func TestServiceUpdateFromLabelNegativeTwiceFlipsMood(t *testing.T) {
 	repo := &fakeCharacterRepo{character: &types.Character{ID: 1, Affection: 40, CurrentMood: "Neutral", LastLabel: "Negative", MoodTurns: 1}}
 	service := NewService(NewStateMachine(), repo, 1)
 
-	if err := service.UpdateFromLabel(context.Background(), EmotionNegative); err != nil {
+	if _, err := service.UpdateFromLabel(context.Background(), EmotionNegative); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if repo.updated == nil || repo.updated.CurrentMood != "Sad" {
@@ -93,7 +93,7 @@ func TestServiceUpdateFromLabelPositiveTwiceFlipsMood(t *testing.T) {
 	repo := &fakeCharacterRepo{character: &types.Character{ID: 1, Affection: 60, CurrentMood: "Sad", LastLabel: "Positive", MoodTurns: 1}}
 	service := NewService(NewStateMachine(), repo, 1)
 
-	if err := service.UpdateFromLabel(context.Background(), EmotionPositive); err != nil {
+	if _, err := service.UpdateFromLabel(context.Background(), EmotionPositive); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if repo.updated == nil || repo.updated.CurrentMood != "Happy" {
