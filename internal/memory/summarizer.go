@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"log/slog"
 	"strings"
 	"sync/atomic"
@@ -46,16 +47,22 @@ Output requirements:
 
 // memorySummarizer 使用 ADK agent 生成记忆摘要。
 type memorySummarizer struct {
-	agent         agent.Agent
-	runner        *runner.Runner
-	charHistories ChatHistoryRepo
-	memoryRepo    MemoryRepo
-	embedder      Embedder
-	counter       uint64
+	agent           agent.Agent
+	runner          summarizerRunner
+	sessionService  session.Service
+	charHistories   ChatHistoryRepo
+	memoryRepo      MemoryRepo
+	embedder        Embedder
+	emotionProvider EmotionStateProvider
+	counter         uint64
+}
+
+type summarizerRunner interface {
+	Run(ctx context.Context, userID, sessionID string, msg *genai.Content, cfg agent.RunConfig) iter.Seq2[*session.Event, error]
 }
 
 // NewMemorySummarizer 基于 ADK llmagent 构建摘要器。
-func NewMemorySummarizer(ctx context.Context, cfg *config.Config, charHistories ChatHistoryRepo, memoryRepo MemoryRepo, embedder Embedder) (Summarizer, error) {
+func NewMemorySummarizer(ctx context.Context, cfg *config.Config, charHistories ChatHistoryRepo, memoryRepo MemoryRepo, embedder Embedder, emotionProvider EmotionStateProvider) (Summarizer, error) {
 	summarizerModel, err := gemini.NewModel(ctx, cfg.MemoryModel, &genai.ClientConfig{
 		APIKey: cfg.GoogleAPIKey,
 	})
@@ -88,11 +95,13 @@ func NewMemorySummarizer(ctx context.Context, cfg *config.Config, charHistories 
 	}
 
 	return &memorySummarizer{
-		agent:         llmAgent,
-		runner:        r,
-		charHistories: charHistories,
-		memoryRepo:    memoryRepo,
-		embedder:      embedder,
+		agent:           llmAgent,
+		runner:          r,
+		sessionService:  sessionService,
+		charHistories:   charHistories,
+		memoryRepo:      memoryRepo,
+		embedder:        embedder,
+		emotionProvider: emotionProvider,
 	}, nil
 }
 
@@ -107,6 +116,19 @@ func (s *memorySummarizer) SummarizeLatestWindow(ctx context.Context, userID, ap
 	}
 
 	summarySessID := fmt.Sprintf("summary-%d", atomic.AddUint64(&s.counter, 1))
+	if _, err := s.sessionService.Create(ctx, &session.CreateRequest{
+		AppName:   memorySummarizerAppName,
+		UserID:    memorySummarizerUserID,
+		SessionID: summarySessID,
+	}); err != nil {
+		if _, getErr := s.sessionService.Get(ctx, &session.GetRequest{
+			AppName:   memorySummarizerAppName,
+			UserID:    memorySummarizerUserID,
+			SessionID: summarySessID,
+		}); getErr != nil {
+			return fmt.Errorf("failed to create summarizer session: %w", err)
+		}
+	}
 	msg := genai.NewContentFromText(window.Content, "user")
 	events := s.runner.Run(ctx, memorySummarizerUserID, summarySessID, msg, agent.RunConfig{
 		StreamingMode: agent.StreamingModeNone,
@@ -141,6 +163,17 @@ func (s *memorySummarizer) SummarizeLatestWindow(ctx context.Context, userID, ap
 		return err
 	}
 
+	var emotionState *EmotionState
+	if s.emotionProvider != nil {
+		state, err := s.emotionProvider.GetEmotionState(ctx, userID, appName)
+		if err != nil {
+			slog.Warn("failed to load emotion state", "error", err.Error(), "user_id", userID, "app_name", appName)
+		} else {
+			emotionState = &state
+		}
+	}
+	salience := ComputeSalience(summary, emotionState)
+
 	embeddingText := buildEmbeddingText(summary.Summary, summary.Facts, summary.Commitments)
 	embedding, err := s.embedder.EmbedDocument(ctx, embeddingText)
 	if err != nil {
@@ -155,6 +188,7 @@ func (s *memorySummarizer) SummarizeLatestWindow(ctx context.Context, userID, ap
 		Facts:       summary.Facts,
 		Commitments: summary.Commitments,
 		Emotions:    summary.Emotions,
+		Salience:    salience,
 		Embedding:   embedding,
 	}); err != nil {
 		return err
@@ -233,4 +267,14 @@ func buildEmbeddingText(summary string, facts, commitments []string) string {
 	appendList("facts", facts)
 	appendList("commitments", commitments)
 	return sb.String()
+}
+
+func normalizeSalience(score float64) float64 {
+	if score != score || score < 0 {
+		return 0
+	}
+	if score > 1 {
+		return 1
+	}
+	return score
 }

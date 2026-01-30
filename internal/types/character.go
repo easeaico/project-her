@@ -16,6 +16,8 @@ type Character struct {
 	AvatarPath      string    `json:"avatar_path"`
 	Affection       int       `json:"affection"`
 	CurrentMood     string    `json:"current_mood"`
+	LastLabel       string    `json:"last_label"`
+	MoodTurns       int       `json:"mood_turns"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/easeaico/project-her/internal/callback"
 	"github.com/easeaico/project-her/internal/config"
+	"github.com/easeaico/project-her/internal/emotion"
 	"github.com/easeaico/project-her/internal/models"
 	internaltool "github.com/easeaico/project-her/internal/tool"
 	"github.com/easeaico/project-her/internal/types"
@@ -29,7 +30,7 @@ type CharacterRepo interface {
 
 	GetDefault(ctx context.Context) (*types.Character, error)
 
-	UpdateEmotion(ctx context.Context, id int, affection int, mood string) error
+	UpdateEmotion(ctx context.Context, id int, affection int, mood string, lastLabel string, moodTurns int) error
 }
 
 const roleplayPromptTemplateText = `你是一个角色扮演 AI 伴侣，必须严格遵循以下规则：
@@ -69,7 +70,15 @@ const roleplayPromptTemplateText = `你是一个角色扮演 AI 伴侣，必须�
 {{- end}}
 
 【回复要求】
-请保持回复在50个字以内、自然，避免列表式输出。`
+请保持回复在50个字以内、自然，避免列表式输出。
+
+【情绪一致性】
+你的回复必须与当前心情一致，除非用户连续多轮表达强烈正向/负向情绪。
+
+【输出格式】
+你必须仅返回一个 JSON 对象，结构如下：
+{"reply":"你的回复","emotion":"Positive|Negative|Neutral"}
+不要输出 JSON 以外的任何文本。`
 
 var roleplayPromptTemplate = template.Must(template.New("prompt").Parse(roleplayPromptTemplateText))
 
@@ -80,6 +89,7 @@ func NewRolePlayAgent(
 	characters CharacterRepo,
 	sessionService session.Service,
 	memoryService memory.Service,
+	emotionService *emotion.Service,
 ) (agent.Agent, error) {
 	llmModel, err := models.NewGrokModel(ctx, cfg.ChatModel, &genai.ClientConfig{
 		APIKey: cfg.XAIAPIKey,
@@ -110,6 +120,9 @@ func NewRolePlayAgent(
 		BeforeAgentCallbacks: []agent.BeforeAgentCallback{
 			callback.NewCommandCallback(ctx, cfg, character),
 			callback.EnsureSessionStateCallback(character),
+		},
+		AfterModelCallbacks: []llmagent.AfterModelCallback{
+			callback.NewEmotionCallback(emotionService),
 		},
 		AfterAgentCallbacks: []agent.AfterAgentCallback{
 			callback.NewMemoryCallback(sessionService, memoryService),

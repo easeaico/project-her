@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"strings"
+	"time"
 
 	adkmemory "google.golang.org/adk/memory"
 	"google.golang.org/adk/session"
@@ -35,6 +37,17 @@ type Summarizer interface {
 	SummarizeLatestWindow(ctx context.Context, userID, appName string) error
 }
 
+// EmotionState captures current affection and mood.
+type EmotionState struct {
+	Affection int
+	Mood      string
+}
+
+// EmotionStateProvider fetches current emotion state.
+type EmotionStateProvider interface {
+	GetEmotionState(ctx context.Context, userID, appName string) (EmotionState, error)
+}
+
 // MemoryRepo 负责持久化摘要后的对话窗口并提供相似度检索。
 // 生产实现通过 internal/storage 使用 GORM。
 type MemoryRepo interface {
@@ -53,13 +66,13 @@ type ChatHistoryRepo interface {
 }
 
 // NewService 构建默认依赖的记忆服务。
-func NewService(ctx context.Context, cfg *config.Config, memories MemoryRepo, chatHistories ChatHistoryRepo) adkmemory.Service {
+func NewService(ctx context.Context, cfg *config.Config, memories MemoryRepo, chatHistories ChatHistoryRepo, emotionProvider EmotionStateProvider) adkmemory.Service {
 	embedder, err := newEmbedder(ctx, cfg.GoogleAPIKey, cfg.EmbeddingModel)
 	if err != nil {
 		log.Fatalf("failed to create embedder service: %v", err)
 	}
 
-	summarizer, err := NewMemorySummarizer(ctx, cfg, chatHistories, memories, embedder)
+	summarizer, err := NewMemorySummarizer(ctx, cfg, chatHistories, memories, embedder, emotionProvider)
 	if err != nil {
 		log.Fatalf("failed to create memory summarizer: %v", err)
 	}
@@ -114,7 +127,20 @@ func (s *memoryService) AddSession(ctx context.Context, session session.Session)
 	}
 
 	if newTurnCount >= s.cfg.MemoryTrunkSize {
-		go s.summarizer.SummarizeLatestWindow(ctx, userID, appName)
+		go func() {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					slog.Error("summarizer goroutine panicked", "panic", recovered, "user_id", userID, "app_name", appName)
+				}
+			}()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := s.summarizer.SummarizeLatestWindow(ctx, userID, appName); err != nil {
+				slog.Error("failed to summarize latest window", "error", err.Error(), "user_id", userID, "app_name", appName)
+			}
+		}()
 	}
 
 	return nil

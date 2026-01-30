@@ -6,7 +6,7 @@ require (
 	github.com/google/jsonschema-go v0.3.0
 	github.com/openai/openai-go/v3 v3.16.0
 	github.com/pgvector/pgvector-go v0.3.0
-	google.golang.org/adk v0.3.0
+	google.golang.org/adk v0.4.0
 	google.golang.org/genai v1.40.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.31.0

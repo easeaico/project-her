@@ -24,6 +24,8 @@ type characterModel struct {
 	AvatarPath      string
 	Affection       int
 	CurrentMood     string
+	LastLabel       string
+	MoodTurns       int
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -58,10 +60,12 @@ func (r *characterRepo) GetDefault(ctx context.Context) (*types.Character, error
 	return characterFromModel(model), nil
 }
 
-func (r *characterRepo) UpdateEmotion(ctx context.Context, id int, affection int, mood string) error {
+func (r *characterRepo) UpdateEmotion(ctx context.Context, id int, affection int, mood string, lastLabel string, moodTurns int) error {
 	updates := map[string]any{
 		"affection":    affection,
 		"current_mood": mood,
+		"last_label":   lastLabel,
+		"mood_turns":   moodTurns,
 		"updated_at":   gorm.Expr("NOW()"),
 	}
 	if err := r.db.WithContext(ctx).
@@ -87,6 +91,8 @@ func characterFromModel(model characterModel) *types.Character {
 		AvatarPath:      model.AvatarPath,
 		Affection:       model.Affection,
 		CurrentMood:     model.CurrentMood,
+		LastLabel:       model.LastLabel,
+		MoodTurns:       model.MoodTurns,
 		CreatedAt:       model.CreatedAt,
 		UpdatedAt:       model.UpdatedAt,
 	}

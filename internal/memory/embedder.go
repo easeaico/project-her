@@ -4,6 +4,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"google.golang.org/genai"
 )
@@ -19,6 +20,8 @@ type GenAIEmbedder struct {
 	client *genai.Client
 	model  string
 }
+
+const embeddingDimensions = 768
 
 // newEmbedder 创建 GenAI 的向量化实现。
 func newEmbedder(ctx context.Context, apiKey, modelName string) (*GenAIEmbedder, error) {
@@ -69,7 +72,8 @@ func (e *GenAIEmbedder) embed(ctx context.Context, text, taskType string) ([]flo
 	}
 
 	resp, err := e.client.Models.EmbedContent(ctx, e.model, genai.Text(text), &genai.EmbedContentConfig{
-		TaskType: taskType,
+		TaskType:              taskType,
+		OutputDimensionality: func() *int32 { v := int32(embeddingDimensions); return &v }(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed content: %w", err)
@@ -77,5 +81,13 @@ func (e *GenAIEmbedder) embed(ctx context.Context, text, taskType string) ([]flo
 	if resp == nil || len(resp.Embeddings) == 0 || resp.Embeddings[0] == nil {
 		return nil, fmt.Errorf("empty embedding response")
 	}
-	return resp.Embeddings[0].Values, nil
+	values := resp.Embeddings[0].Values
+	if len(values) == embeddingDimensions {
+		return values, nil
+	}
+	if len(values) > embeddingDimensions {
+		slog.Warn("embedding dimensions exceed target, truncating", "actual", len(values), "target", embeddingDimensions, "model", e.model)
+		return values[:embeddingDimensions], nil
+	}
+	return nil, fmt.Errorf("embedding dimensions mismatch: got %d want %d", len(values), embeddingDimensions)
 }

@@ -63,10 +63,12 @@ func (t *PreloadMemoryTool) ProcessRequest(ctx tool.Context, req *model.LLMReque
 		return nil
 	}
 
-	resp, err := safeSearchMemory(ctx, query)
+	resp, err := ctx.SearchMemory(ctx, query)
 	if err != nil {
+		slog.Error("failed to search memory", "error", err.Error())
 		return fmt.Errorf("failed to search memory: %w", err)
 	}
+
 	if resp == nil || len(resp.Memories) == 0 {
 		return nil
 	}
@@ -77,20 +79,6 @@ func (t *PreloadMemoryTool) ProcessRequest(ctx tool.Context, req *model.LLMReque
 	}
 	appendInstruction(req, instruction)
 	return nil
-}
-
-func safeSearchMemory(ctx tool.Context, query string) (resp *memory.SearchResponse, err error) {
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			slog.Warn("memory search panicked; skipping preload", "panic", recovered)
-			resp = nil
-			err = nil
-		}
-	}()
-	if ctx == nil {
-		return nil, nil
-	}
-	return ctx.SearchMemory(ctx, query)
 }
 
 func buildMemoryInstruction(memories []memory.Entry, maxEntries int) string {

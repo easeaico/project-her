@@ -129,14 +129,22 @@ func (r *MemoryRepo) SearchSimilar(ctx context.Context, userID, appName, memoryT
 		args = append(args, memoryType)
 		argIndex++
 	}
+	if appName != "" {
+		conditions += fmt.Sprintf(" AND app_name = $%d", argIndex)
+		args = append(args, appName)
+		argIndex++
+	}
 
 	query := fmt.Sprintf(`
-		SELECT 'assistant' AS role, summary AS content, type, created_at,
-		       1 - (embedding <=> $1) AS similarity,
-		       COALESCE(salience_score, 0) AS salience_score
-		FROM memories
-		WHERE %s
-		ORDER BY (0.85 * similarity + 0.15 * COALESCE(salience_score, 0)) DESC
+		SELECT role, content, type, created_at, similarity, salience_score
+		FROM (
+			SELECT 'assistant' AS role, summary AS content, type, created_at,
+			       1 - (embedding <=> $1) AS similarity,
+			       COALESCE(salience_score, 0) AS salience_score
+			FROM memories
+			WHERE %s
+		) AS scored
+		ORDER BY (0.85 * similarity + 0.15 * salience_score) DESC
 		LIMIT $%d`, conditions, argIndex)
 
 	args = append(args, topK)

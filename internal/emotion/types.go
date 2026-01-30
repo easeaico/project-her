@@ -13,6 +13,8 @@ const (
 type EmotionState struct {
 	Affection   int
 	CurrentMood string
+	MoodTurns   int
+	LastLabel   string
 }
 
 // ClampAffection bounds affection to 0-100.
