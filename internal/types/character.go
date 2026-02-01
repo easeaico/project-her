@@ -4,24 +4,17 @@ import "time"
 
 // Character is the persisted profile.
 type Character struct {
-	ID              int       `json:"id"`
-	Name            string    `json:"name"`
-	Description     string    `json:"description"`
-	Appearance      string    `json:"appearance"`
-	Personality     string    `json:"personality"`
-	Scenario        string    `json:"scenario"`
-	FirstMessage    string    `json:"first_message"`
-	ExampleDialogue string    `json:"example_dialogue"`
-	SystemPrompt    string    `json:"system_prompt"`
-	SystemPromptRaw string    `json:"system_prompt_raw"`
-	AvatarPath      string    `json:"avatar_path"`
-	AvatarURL       string    `json:"avatar_url"`
-	Affection       int       `json:"affection"`
-	CurrentMood     string    `json:"current_mood"`
-	LastLabel       string    `json:"last_label"`
-	MoodTurns       int       `json:"mood_turns"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID             int       `json:"id"`
+	Name           string    `json:"name"`
+	Description    string    `json:"description"`
+	Personality    string    `json:"personality"`
+	Scenario       string    `json:"scenario"`
+	FirstMessage   string    `json:"first_mes"`
+	MessageExample string    `json:"mes_example"`
+	SystemPrompt   string    `json:"system_prompt"`
+	Avatar         string    `json:"avatar"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 const (

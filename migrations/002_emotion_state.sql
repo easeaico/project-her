@@ -1,3 +1,0 @@
-ALTER TABLE characters
-    ADD COLUMN IF NOT EXISTS last_label VARCHAR(20),
-    ADD COLUMN IF NOT EXISTS mood_turns INT DEFAULT 0;

@@ -69,12 +69,10 @@ func processImageCommand(ctx context.Context, input string, character *types.Cha
 
 	data := struct {
 		CharacterName        string
-		CharacterAppearance  string
 		CharacterDescription string
 		CharacterScenario    string
 	}{
 		CharacterName:        character.Name,
-		CharacterAppearance:  character.Appearance,
 		CharacterDescription: character.Description,
 		CharacterScenario:    character.Scenario,
 	}

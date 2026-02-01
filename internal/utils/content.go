@@ -18,3 +18,12 @@ func ExtractContentText(content *genai.Content) string {
 	}
 	return sb.String()
 }
+
+func NormalizePromptText(text string, charName, userName string) string {
+	text = strings.ReplaceAll(text, "{{char}}", charName)
+	text = strings.ReplaceAll(text, "{{user}}", userName)
+	text = strings.ReplaceAll(text, "\\r\\n", "\n")
+	text = strings.ReplaceAll(text, "\\n", "\n")
+	text = strings.ReplaceAll(text, "\\\"", "\"")
+	return text
+}

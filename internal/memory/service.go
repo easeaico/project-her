@@ -37,17 +37,6 @@ type Summarizer interface {
 	SummarizeLatestWindow(ctx context.Context, userID, appName string) error
 }
 
-// EmotionState captures current affection and mood.
-type EmotionState struct {
-	Affection int
-	Mood      string
-}
-
-// EmotionStateProvider fetches current emotion state.
-type EmotionStateProvider interface {
-	GetEmotionState(ctx context.Context, userID, appName string) (EmotionState, error)
-}
-
 // MemoryRepo 负责持久化摘要后的对话窗口并提供相似度检索。
 // 生产实现通过 internal/storage 使用 GORM。
 type MemoryRepo interface {
@@ -66,13 +55,13 @@ type ChatHistoryRepo interface {
 }
 
 // NewService 构建默认依赖的记忆服务。
-func NewService(ctx context.Context, cfg *config.Config, memories MemoryRepo, chatHistories ChatHistoryRepo, emotionProvider EmotionStateProvider) adkmemory.Service {
+func NewService(ctx context.Context, cfg *config.Config, memories MemoryRepo, chatHistories ChatHistoryRepo) adkmemory.Service {
 	embedder, err := newEmbedder(ctx, cfg.GoogleAPIKey, cfg.EmbeddingModel)
 	if err != nil {
 		log.Fatalf("failed to create embedder service: %v", err)
 	}
 
-	summarizer, err := NewMemorySummarizer(ctx, cfg, chatHistories, memories, embedder, emotionProvider)
+	summarizer, err := NewMemorySummarizer(ctx, cfg, chatHistories, memories, embedder)
 	if err != nil {
 		log.Fatalf("failed to create memory summarizer: %v", err)
 	}

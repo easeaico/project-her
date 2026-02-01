@@ -12,7 +12,6 @@ import (
 
 	internalagent "github.com/easeaico/project-her/internal/agent"
 	"github.com/easeaico/project-her/internal/config"
-	"github.com/easeaico/project-her/internal/emotion"
 	"github.com/easeaico/project-her/internal/memory"
 	"github.com/easeaico/project-her/internal/storage"
 	"google.golang.org/adk/agent"
@@ -41,17 +40,14 @@ func main() {
 	}
 	defer store.Close()
 
-	emotionProvider := storage.NewEmotionStateProvider(store.Characters, cfg.CharacterID)
-	memoryService := memory.NewService(ctx, &cfg, store.Memories, store.ChatHistories, emotionProvider)
+	memoryService := memory.NewService(ctx, &cfg, store.Memories, store.ChatHistories)
 
 	sessionService, err := database.NewSessionService(postgres.Open(cfg.DatabaseURL))
 	if err != nil {
 		log.Fatalf("failed to create session service: %v", err)
 	}
 
-	emotionService := emotion.NewService(emotion.NewStateMachine(), store.Characters, cfg.CharacterID)
-
-	llmAgent, err := internalagent.NewRolePlayAgent(ctx, &cfg, store.Characters, sessionService, memoryService, emotionService)
+	llmAgent, err := internalagent.NewRolePlayAgent(ctx, &cfg, store.Characters, sessionService, memoryService)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

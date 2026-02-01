@@ -161,25 +161,6 @@ func TestSummarizeLatestWindowCreatesSessionAndWritesMemory(t *testing.T) {
 	}
 }
 
-func TestComputeSalienceWithEmotionState(t *testing.T) {
-	summary := types.MemorySummary{
-		Summary:     "这是一段包含情感和承诺的摘要",
-		Facts:       []string{"用户喜欢电影"},
-		Commitments: []string{"下次一起看电影"},
-		Emotions:    []string{"难过"},
-		TimeRange:   types.TimeRange{Start: "2026-01-01", End: "2026-01-02"},
-	}
-	state := &EmotionState{
-		Affection: 10,
-		Mood:      "Angry",
-	}
-
-	score := ComputeSalience(summary, state)
-	if score <= 0.8 {
-		t.Fatalf("expected salience to be high, got %v", score)
-	}
-}
-
 func TestComputeSalienceClampsToRange(t *testing.T) {
 	summary := types.MemorySummary{
 		Summary:     strings.Repeat("很重要", 120),
@@ -188,11 +169,7 @@ func TestComputeSalienceClampsToRange(t *testing.T) {
 		Emotions:    []string{"e1", "e2", "e3"},
 		TimeRange:   types.TimeRange{Start: "2026-01-01"},
 	}
-	state := &EmotionState{
-		Affection: 5,
-		Mood:      "Angry",
-	}
-	score := ComputeSalience(summary, state)
+	score := ComputeSalience(summary)
 	if score != 1 {
 		t.Fatalf("expected clamp to 1, got %v", score)
 	}

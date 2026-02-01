@@ -6,9 +6,8 @@ import (
 	"github.com/easeaico/project-her/internal/types"
 )
 
-// ComputeSalience calculates a deterministic salience score in [0,1] based on key memory signals
-// and optional emotion state.
-func ComputeSalience(summary types.MemorySummary, state *EmotionState) float64 {
+// ComputeSalience calculates a deterministic salience score in [0,1] based on key memory signals.
+func ComputeSalience(summary types.MemorySummary) float64 {
 	score := 0.0
 
 	if summary.Summary != "" {
@@ -42,21 +41,6 @@ func ComputeSalience(summary types.MemorySummary, state *EmotionState) float64 {
 		score += 0.10
 	} else if summaryLen >= 100 {
 		score += 0.05
-	}
-
-	if state != nil {
-		switch state.Mood {
-		case "Angry", "Sad":
-			score += 0.10
-		case "Happy":
-			score += 0.05
-		}
-		switch {
-		case state.Affection <= 20:
-			score += 0.05
-		case state.Affection >= 80:
-			score += 0.03
-		}
 	}
 
 	return clampScore(score)

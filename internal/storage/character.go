@@ -12,29 +12,24 @@ import (
 )
 
 type characterModel struct {
-	ID              int
-	Name            string
-	Description     string
-	Appearance      string
-	Personality     string
-	Scenario        string
-	FirstMessage    string
-	ExampleDialogue string
-	SystemPrompt    string
-	AvatarPath      string
-	Affection       int
-	CurrentMood     string
-	LastLabel       string
-	MoodTurns       int
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID           int
+	Name         string
+	Description  string
+	Personality  string
+	Scenario     string
+	FirstMessage string `gorm:"column:first_mes"`
+	MesExample   string `gorm:"column:mes_example"`
+	SystemPrompt string
+	Avatar       string `gorm:"column:avatar"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 func (characterModel) TableName() string {
 	return "characters"
 }
 
-// CharacterRepo accesses characters data, including persisted emotion stability fields.
+// CharacterRepo accesses characters data.
 type characterRepo struct {
 	db *gorm.DB
 }
@@ -60,42 +55,18 @@ func (r *characterRepo) GetDefault(ctx context.Context) (*types.Character, error
 	return characterFromModel(model), nil
 }
 
-func (r *characterRepo) UpdateEmotion(ctx context.Context, id int, affection int, mood string, lastLabel string, moodTurns int) error {
-	updates := map[string]any{
-		"affection":    affection,
-		"current_mood": mood,
-		"last_label":   lastLabel,
-		"mood_turns":   moodTurns,
-		"updated_at":   gorm.Expr("NOW()"),
-	}
-	if err := r.db.WithContext(ctx).
-		Model(&characterModel{}).
-		Where("id = ?", id).
-		Updates(updates).Error; err != nil {
-		return fmt.Errorf("failed to update emotion: %w", err)
-	}
-	return nil
-}
-
 func characterFromModel(model characterModel) *types.Character {
 	return &types.Character{
-		ID:              model.ID,
-		Name:            model.Name,
-		Description:     model.Description,
-		Appearance:      model.Appearance,
-		Personality:     model.Personality,
-		Scenario:        model.Scenario,
-		FirstMessage:    model.FirstMessage,
-		ExampleDialogue: model.ExampleDialogue,
-		SystemPrompt:    model.SystemPrompt,
-		SystemPromptRaw: model.SystemPrompt,
-		AvatarPath:      model.AvatarPath,
-		AvatarURL:       model.AvatarPath,
-		Affection:       model.Affection,
-		CurrentMood:     model.CurrentMood,
-		LastLabel:       model.LastLabel,
-		MoodTurns:       model.MoodTurns,
-		CreatedAt:       model.CreatedAt,
-		UpdatedAt:       model.UpdatedAt,
+		ID:             model.ID,
+		Name:           model.Name,
+		Description:    model.Description,
+		Personality:    model.Personality,
+		Scenario:       model.Scenario,
+		FirstMessage:   model.FirstMessage,
+		MessageExample: model.MesExample,
+		SystemPrompt:   model.SystemPrompt,
+		Avatar:         model.Avatar,
+		CreatedAt:      model.CreatedAt,
+		UpdatedAt:      model.UpdatedAt,
 	}
 }

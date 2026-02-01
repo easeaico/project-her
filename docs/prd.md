@@ -48,12 +48,6 @@
 6. **History：** 最近 N 轮对话（滑动窗口）。
 7. **Anchor：** 尾部指令（如“保持简短”）。
 
-* **FR-2.2：结构化输出**
-* 主模型必须返回 JSON 格式：
-  - `reply`：最终对话回复内容
-  - `emotion`：情绪标签（Positive/Negative/Neutral）
-* 系统解析 JSON 后仅展示 `reply`，并使用 `emotion` 更新情绪状态。
-
 ### 3.2 模块二：记忆与检索
 
 **用户故事：** 用户提到“我上次说的那个电影”，AI 能反应过来是《疯狂动物城》。
@@ -69,22 +63,6 @@
 * **FR-3.3：摘要机制（可选高级功能）**
 * 每累计 N 轮对话触发一次 LLM 总结任务，将对话压缩为一条“情节记忆”存入库（当前默认 N=100，可配置）。
 
-### 3.3 模块四：情感状态机
-
-**用户故事：** 用户辱骂 AI，AI 进入“生气”状态，回复变冷淡；用户道歉后，AI 转为“委屈”。
-
-* **FR-4.1：情感分析**
-* 每轮对话后，从主模型输出的结构化 JSON 中读取 `emotion` 标签（Positive/Negative/Neutral）。
-
-* **FR-4.2：数值系统**
-* 维护 `affection_score`（0-100）。
-* 维护 `current_mood`（Happy/Angry/Sad/Neutral，对应 开心/生气/难过/中性）。
-* 引入情绪稳定机制：需要连续多轮同类情绪信号才能触发 `current_mood` 变化。
-* 记录 `last_label` 与 `mood_turns` 以降低频繁波动。
-
-* **FR-4.3：状态反馈**
-* 不同的 `current_mood` 对应不同的系统提示词（System Prompt）微调指令（例如：Angry -> "Reply shortly and coldly"）。
-
 ---
 
 ## 4. 数据结构设计
@@ -97,9 +75,8 @@
 | --- | --- | --- |
 | `id` | SERIAL | 主键 |
 | `name` | VARCHAR | 角色名 |
-| `system_prompt_raw` | TEXT | 原始设定文本 |
-| `example_dialogue` | TEXT | 对话范例 |
-| `avatar_url` | VARCHAR | 图片路径 |
+| `mes_example` | TEXT | 对话范例 |
+| `avatar` | VARCHAR | 图片路径 |
 | `affection` | INT | 当前好感度 (0-100) |
 | `last_label` | VARCHAR | 最近一次情绪标签（Positive/Negative/Neutral） |
 | `mood_turns` | INT | 当前心情持续轮次 |

@@ -53,7 +53,6 @@ type memorySummarizer struct {
 	charHistories   ChatHistoryRepo
 	memoryRepo      MemoryRepo
 	embedder        Embedder
-	emotionProvider EmotionStateProvider
 	counter         uint64
 }
 
@@ -62,7 +61,7 @@ type summarizerRunner interface {
 }
 
 // NewMemorySummarizer 基于 ADK llmagent 构建摘要器。
-func NewMemorySummarizer(ctx context.Context, cfg *config.Config, charHistories ChatHistoryRepo, memoryRepo MemoryRepo, embedder Embedder, emotionProvider EmotionStateProvider) (Summarizer, error) {
+func NewMemorySummarizer(ctx context.Context, cfg *config.Config, charHistories ChatHistoryRepo, memoryRepo MemoryRepo, embedder Embedder) (Summarizer, error) {
 	summarizerModel, err := gemini.NewModel(ctx, cfg.MemoryModel, &genai.ClientConfig{
 		APIKey: cfg.GoogleAPIKey,
 	})
@@ -101,7 +100,6 @@ func NewMemorySummarizer(ctx context.Context, cfg *config.Config, charHistories 
 		charHistories:   charHistories,
 		memoryRepo:      memoryRepo,
 		embedder:        embedder,
-		emotionProvider: emotionProvider,
 	}, nil
 }
 
@@ -163,16 +161,7 @@ func (s *memorySummarizer) SummarizeLatestWindow(ctx context.Context, userID, ap
 		return err
 	}
 
-	var emotionState *EmotionState
-	if s.emotionProvider != nil {
-		state, err := s.emotionProvider.GetEmotionState(ctx, userID, appName)
-		if err != nil {
-			slog.Warn("failed to load emotion state", "error", err.Error(), "user_id", userID, "app_name", appName)
-		} else {
-			emotionState = &state
-		}
-	}
-	salience := ComputeSalience(summary, emotionState)
+	salience := ComputeSalience(summary)
 
 	embeddingText := buildEmbeddingText(summary.Summary, summary.Facts, summary.Commitments)
 	embedding, err := s.embedder.EmbedDocument(ctx, embeddingText)
